@@ -1,6 +1,7 @@
 package com.manoeuvres.android;
 
 import android.content.Intent;
+import android.preference.PreferenceManager;
 import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -76,7 +77,8 @@ public class LoginActivity extends AppCompatActivity {
                         public void onDataChange(DataSnapshot dataSnapshot) {
                             //If the user already exists, update the access token and start MainActivity.
                             if (dataSnapshot.hasChild(user.getUid())) {
-                                mDatabase.getReference("users").child(user.getUid()).child("facebookAccessToken").setValue(mAccessToken.getToken());
+                                PreferenceManager.getDefaultSharedPreferences(getApplicationContext()).edit().putString("accessToken", mAccessToken.getToken()).commit();
+
 
                                 Intent intent = new Intent(LoginActivity.this, MainActivity.class);
                                 startActivity(intent);
@@ -162,7 +164,7 @@ public class LoginActivity extends AppCompatActivity {
         //Create profile
         DatabaseReference userProfileReference = mDatabase.getReference("users").child(firebaseUser.getUid());
         userProfileReference.child("facebookId").setValue(mFacebookUserId);
-        userProfileReference.child("facebookAccessToken").setValue(mAccessToken.getToken());
+        //userProfileReference.child("facebookAccessToken").setValue(mAccessToken.getToken());
         //userProfileReference.child("following").setValue(" ");
         //userProfileReference.child("followers").setValue(" ");
         userProfileReference.child("online").setValue(false);
