@@ -1,10 +1,8 @@
 package com.manoeuvres.android;
 
 import android.os.Bundle;
-import android.preference.PreferenceManager;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
-import android.util.Log;
 import android.view.View;
 import android.support.design.widget.NavigationView;
 import android.support.v4.view.GravityCompat;
@@ -18,25 +16,32 @@ import android.view.MenuItem;
 import com.facebook.FacebookSdk;
 import com.facebook.appevents.AppEventsLogger;
 
+
 public class MainActivity extends AppCompatActivity
         implements NavigationView.OnNavigationItemSelectedListener {
 
-    private String mFacebookAccessToken;
+    private static final String TAG = "MainActivityLog";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        Log.v("MainActivityLog", "onCreate called.");
         setContentView(R.layout.activity_main);
 
+        //Initialize Facebook SDK. Call this as early as possible.
         FacebookSdk.sdkInitialize(getApplicationContext());
 
         //App events for analytics.
         AppEventsLogger.activateApp(getApplication());
 
+        initializeViews();
+    }
+
+    private void initializeViews() {
+        //Initialize toolbar.
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
+        //Initialize floating action button.
         FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -46,16 +51,18 @@ public class MainActivity extends AppCompatActivity
             }
         });
 
+        //Initialize drawer layout.
         DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
+
+        //Initialize action bar toggle.
         ActionBarDrawerToggle toggle = new ActionBarDrawerToggle(
                 this, drawer, toolbar, R.string.navigation_drawer_open, R.string.navigation_drawer_close);
         drawer.setDrawerListener(toggle);
         toggle.syncState();
 
+        //Initialize navigation view.
         NavigationView navigationView = (NavigationView) findViewById(R.id.nav_view);
         navigationView.setNavigationItemSelectedListener(this);
-
-        mFacebookAccessToken = PreferenceManager.getDefaultSharedPreferences(getApplicationContext()).getString("accessToken", null);
     }
 
     @Override

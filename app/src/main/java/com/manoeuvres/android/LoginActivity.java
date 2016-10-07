@@ -42,7 +42,6 @@ public class LoginActivity extends AppCompatActivity {
 
     private static final String TAG = "LoginActivityLog";
     private CallbackManager mCallbackManager;
-    private AccessToken mAccessToken;
     private long mFacebookUserId;
     private FirebaseAuth mAuth;
     private FirebaseDatabase mDatabase;
@@ -75,11 +74,8 @@ public class LoginActivity extends AppCompatActivity {
 
                         @Override
                         public void onDataChange(DataSnapshot dataSnapshot) {
-                            //If the user already exists, update the access token and start MainActivity.
+                            //If the user already exists, start the MainActivity.
                             if (dataSnapshot.hasChild(user.getUid())) {
-                                PreferenceManager.getDefaultSharedPreferences(getApplicationContext()).edit().putString("accessToken", mAccessToken.getToken()).commit();
-
-
                                 Intent intent = new Intent(LoginActivity.this, MainActivity.class);
                                 startActivity(intent);
                                 finish();
@@ -129,7 +125,6 @@ public class LoginActivity extends AppCompatActivity {
 
     private void handleFacebookAccessToken(final AccessToken token) {
         Log.d(TAG, "handleFacebookAccessToken:" + token);
-        mAccessToken = token;
         setFacebookUserId();
         AuthCredential credential = FacebookAuthProvider.getCredential(token.getToken());
         mAuth.signInWithCredential(credential)
@@ -188,7 +183,7 @@ public class LoginActivity extends AppCompatActivity {
 
     private void setFacebookUserId() {
         GraphRequest request = GraphRequest.newMeRequest(
-                mAccessToken,
+                AccessToken.getCurrentAccessToken(),
                 new GraphRequest.GraphJSONObjectCallback() {
                     @Override
                     public void onCompleted(JSONObject object, GraphResponse response) {
