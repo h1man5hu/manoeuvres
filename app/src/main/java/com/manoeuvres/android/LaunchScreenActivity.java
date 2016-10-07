@@ -23,22 +23,28 @@ public class LaunchScreenActivity extends AppCompatActivity {
         mAuth = FirebaseAuth.getInstance();
 
         mAuthListener = new FirebaseAuth.AuthStateListener() {
+            private boolean called = false;
+
             @Override
             public void onAuthStateChanged(@NonNull FirebaseAuth firebaseAuth) {
-                FirebaseUser user = firebaseAuth.getCurrentUser();
-                if (user != null) {
-                    // User is signed in
-                    Log.d(TAG, "onAuthStateChanged:signed_in:" + user.getUid());
-                    Intent intent = new Intent(LaunchScreenActivity.this, MainActivity.class);
-                    startActivity(intent);
-                    finish();
-                } else {
-                    // User is signed out
-                    Log.d(TAG, "onAuthStateChanged:signed_out");
-                    Intent intent = new Intent(LaunchScreenActivity.this, LoginActivity.class);
-                    startActivity(intent);
-                    finish();
+                if (!called) {
+                    FirebaseUser user = firebaseAuth.getCurrentUser();
+                    if (user != null) {
+                        // User is signed in
+                        Log.d(TAG, "onAuthStateChanged:signed_in:" + user.getUid());
+                        Intent intent = new Intent(LaunchScreenActivity.this, MainActivity.class);
+                        startActivity(intent);
+                        finish();
+
+                    } else {
+                        // User is signed out
+                        Log.d(TAG, "onAuthStateChanged:signed_out");
+                        Intent intent = new Intent(LaunchScreenActivity.this, LoginActivity.class);
+                        startActivity(intent);
+                        finish();
+                    }
                 }
+                called = true;
             }
         };
     }
