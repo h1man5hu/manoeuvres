@@ -12,9 +12,17 @@ import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.widget.ImageView;
+import android.widget.TextView;
 
+import com.facebook.AccessToken;
 import com.facebook.FacebookSdk;
+import com.facebook.GraphRequest;
+import com.facebook.GraphResponse;
 import com.facebook.appevents.AppEventsLogger;
+
+import org.json.JSONException;
+import org.json.JSONObject;
 
 
 public class MainActivity extends AppCompatActivity
@@ -34,6 +42,35 @@ public class MainActivity extends AppCompatActivity
         AppEventsLogger.activateApp(getApplication());
 
         initializeViews();
+
+        setNameAndProfilePicture();
+    }
+
+    private void setNameAndProfilePicture() {
+        GraphRequest request = GraphRequest.newMeRequest(
+                AccessToken.getCurrentAccessToken(),
+                new GraphRequest.GraphJSONObjectCallback() {
+                    @Override
+                    public void onCompleted(JSONObject object, GraphResponse response) {
+                        if (object != null) {
+                            TextView name = (TextView) findViewById(R.id.navigation_header_textview_name);
+                            ImageView profilePicture = (ImageView) findViewById(R.id.navigation_header_imageview_profile_picture);
+
+                            try {
+                                name.setText(object.getString("name"));
+                            } catch (JSONException e) {
+                                e.printStackTrace();
+                            }
+
+                            //To-Do: Set Profile picture.
+                        }
+                    }
+                });
+
+        Bundle parameters = new Bundle();
+        parameters.putString("fields", "name,picture");
+        request.setParameters(parameters);
+        request.executeAsync();
     }
 
     private void initializeViews() {
