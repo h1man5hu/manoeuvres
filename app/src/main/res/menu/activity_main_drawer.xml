@@ -2,12 +2,17 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
 
     <group
-        android:id="@+id/nav_group_basic"
+        android:id="@+id/nav_group_timelines"
         android:checkableBehavior="single">
         <item
             android:id="@+id/nav_timeline"
             android:icon="@drawable/ic_menu_camera"
             android:title="Timeline"/>
+    </group>
+
+    <group
+        android:id="@+id/nav_group_profile"
+        android:checkableBehavior="single">
         <item
             android:id="@+id/nav_followers"
             android:icon="@drawable/ic_menu_gallery"
