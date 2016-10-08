@@ -22,11 +22,23 @@ public class Move {
         return mName;
     }
 
+    public void setName(String name) {
+        mName = name;
+    }
+
     public String getPresent() {
         return mPresent;
     }
 
+    public void setPresent(String present) {
+        mPresent = present;
+    }
+
     public String getPast() {
         return mPast;
+    }
+
+    public void setPast(String past) {
+        mPast = past;
     }
 }
