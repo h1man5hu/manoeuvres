@@ -156,9 +156,9 @@ public class MainActivity extends AppCompatActivity
         } else if (id == R.id.nav_requests) {
             fragmentClass = RequestsFragment.class;
         } else if (id == R.id.nav_settings) {
-
+            return false;
         } else if (id == R.id.nav_log_out) {
-
+            return false;
         }
 
         try {
