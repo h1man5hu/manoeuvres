@@ -1,9 +1,11 @@
 package com.manoeuvres.android;
 
+import android.content.DialogInterface;
 import android.os.Bundle;
 import android.support.design.widget.FloatingActionButton;
-import android.support.design.widget.Snackbar;
 import android.support.v4.app.Fragment;
+import android.support.v7.app.AlertDialog;
+import android.util.Log;
 import android.view.View;
 import android.support.design.widget.NavigationView;
 import android.support.v4.view.GravityCompat;
@@ -12,6 +14,7 @@ import android.support.v7.app.ActionBarDrawerToggle;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.view.MenuItem;
+import android.widget.ArrayAdapter;
 import android.widget.ImageView;
 import android.widget.TextView;
 
@@ -20,9 +23,19 @@ import com.facebook.FacebookSdk;
 import com.facebook.GraphRequest;
 import com.facebook.GraphResponse;
 import com.facebook.appevents.AppEventsLogger;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
 
 import org.json.JSONException;
 import org.json.JSONObject;
+
+import java.util.ArrayList;
+import java.util.List;
 
 
 public class MainActivity extends AppCompatActivity
@@ -36,6 +49,10 @@ public class MainActivity extends AppCompatActivity
     private DrawerLayout mDrawerLayout;
     private ActionBarDrawerToggle mToggle;
     private NavigationView mNavigationView;
+
+    //Firebase
+    private FirebaseUser mUser;
+    private DatabaseReference mDatabaseRoot;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -53,6 +70,9 @@ public class MainActivity extends AppCompatActivity
         setNameAndProfilePicture();
 
         getSupportFragmentManager().beginTransaction().add(R.id.content_main, new TimelineFragment(), "TIMELINE_FRAGMENT").commit();
+
+        mUser = FirebaseAuth.getInstance().getCurrentUser();
+        mDatabaseRoot = FirebaseDatabase.getInstance().getReference();
     }
 
     private void setNameAndProfilePicture() {
@@ -88,13 +108,7 @@ public class MainActivity extends AppCompatActivity
 
         //Initialize floating action button.
         mFab = (FloatingActionButton) findViewById(R.id.fab);
-        mFab.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-                        .setAction("Action", null).show();
-            }
-        });
+        mFab.setOnClickListener(new FabClickListener());
 
         //Initialize drawer layout.
         mDrawerLayout = (DrawerLayout) findViewById(R.id.drawer_layout);
@@ -159,4 +173,52 @@ public class MainActivity extends AppCompatActivity
         return true;
     }
 
+    class FabClickListener implements View.OnClickListener {
+
+        private Fragment mCurrentFragment;
+
+        @Override
+        public void onClick(View view) {
+            mCurrentFragment = getSupportFragmentManager().findFragmentById(R.id.content_main);
+
+            //If the button is clicked from the timeline,
+            if (mCurrentFragment instanceof TimelineFragment) {
+                //Adapter to display moves in an alert dialog.
+                final ArrayAdapter<String> arrayAdapter = new ArrayAdapter<>(MainActivity.this, R.layout.move_selector_listitem_title);
+
+                //Data of all the moves. One of which will be selected to create a log and then pushed.
+                final List<DataSnapshot> dataSnapshots = new ArrayList<>();
+
+                //Fill the adapter with the data from the firebase database.
+                mDatabaseRoot.child("moves").child(mUser.getUid()).addListenerForSingleValueEvent(new ValueEventListener() {
+                    @Override
+                    public void onDataChange(DataSnapshot dataSnapshot) {
+                        for (DataSnapshot move : dataSnapshot.getChildren()) {
+                            arrayAdapter.add(move.child("name").getValue().toString());
+                            dataSnapshots.add(move);
+                        }
+                    }
+
+                    @Override
+                    public void onCancelled(DatabaseError databaseError) {
+
+                    }
+                });
+
+                //Create an alert dialog, push a log when a move is selected.
+                new AlertDialog.Builder(MainActivity.this).setTitle("Select a move to broadcast").setAdapter(arrayAdapter, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int i) {
+                        mDatabaseRoot.child("logs").child(mUser.getUid()).push().setValue(new com.manoeuvres.android.models.Log(dataSnapshots.get(i).getKey()));
+                    }
+                }).setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int i) {
+
+                    }
+                }).show();
+
+            }
+        }
+    }
 }
