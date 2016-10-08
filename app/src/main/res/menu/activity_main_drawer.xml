@@ -17,6 +17,10 @@
             android:icon="@drawable/ic_menu_slideshow"
             android:title="Following"/>
         <item
+            android:id="@+id/nav_find_friends"
+            android:icon="@android:drawable/ic_menu_search"
+            android:title="Find friends"/>
+        <item
             android:id="@+id/nav_requests"
             android:icon="@drawable/ic_menu_manage"
             android:title="Requests"/>
