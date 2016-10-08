@@ -109,6 +109,7 @@ public class MainActivity extends AppCompatActivity
         //Initialize floating action button.
         mFab = (FloatingActionButton) findViewById(R.id.fab);
         mFab.setOnClickListener(new FabClickListener());
+        mFab.hide();
 
         //Initialize drawer layout.
         mDrawerLayout = (DrawerLayout) findViewById(R.id.drawer_layout);
