@@ -54,6 +54,8 @@ public class MainActivity extends AppCompatActivity
     private FirebaseUser mUser;
     private DatabaseReference mDatabaseRoot;
 
+    private boolean mMoveInProgress;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -73,6 +75,23 @@ public class MainActivity extends AppCompatActivity
 
         mUser = FirebaseAuth.getInstance().getCurrentUser();
         mDatabaseRoot = FirebaseDatabase.getInstance().getReference();
+
+        //Check if the latest log is in progress or not.
+        mDatabaseRoot.child("logs").child(mUser.getUid()).limitToLast(1).addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot dataSnapshot) {
+                if (dataSnapshot.getChildren().iterator().next().getValue(com.manoeuvres.android.models.Log.class).getEndTime() == 0) {
+                    mMoveInProgress = true;
+                } else {
+                    mMoveInProgress = false;
+                }
+            }
+
+            @Override
+            public void onCancelled(DatabaseError databaseError) {
+
+            }
+        });
     }
 
     private void setNameAndProfilePicture() {
@@ -184,41 +203,62 @@ public class MainActivity extends AppCompatActivity
 
             //If the button is clicked from the timeline,
             if (mCurrentFragment instanceof TimelineFragment) {
-                //Adapter to display moves in an alert dialog.
-                final ArrayAdapter<String> arrayAdapter = new ArrayAdapter<>(MainActivity.this, R.layout.move_selector_listitem_title);
 
-                //Data of all the moves. One of which will be selected to create a log and then pushed.
-                final List<DataSnapshot> dataSnapshots = new ArrayList<>();
+                //If there is no move in progress, display a dialog to select a new move.
+                if (!mMoveInProgress) {
 
-                //Fill the adapter with the data from the firebase database.
-                mDatabaseRoot.child("moves").child(mUser.getUid()).addListenerForSingleValueEvent(new ValueEventListener() {
-                    @Override
-                    public void onDataChange(DataSnapshot dataSnapshot) {
-                        for (DataSnapshot move : dataSnapshot.getChildren()) {
-                            arrayAdapter.add(move.child("name").getValue().toString());
-                            dataSnapshots.add(move);
+                    //Adapter to display moves in an alert dialog.
+                    final ArrayAdapter<String> arrayAdapter = new ArrayAdapter<>(MainActivity.this, R.layout.move_selector_listitem_title);
+
+                    //Data of all the moves. One of which will be selected to create a log and then pushed.
+                    final List<DataSnapshot> dataSnapshots = new ArrayList<>();
+
+                    //Fill the adapter with the data from the Firebase database.
+                    mDatabaseRoot.child("moves").child(mUser.getUid()).addListenerForSingleValueEvent(new ValueEventListener() {
+                        @Override
+                        public void onDataChange(DataSnapshot dataSnapshot) {
+                            for (DataSnapshot move : dataSnapshot.getChildren()) {
+                                arrayAdapter.add(move.child("name").getValue().toString());
+                                dataSnapshots.add(move);
+                            }
                         }
-                    }
 
-                    @Override
-                    public void onCancelled(DatabaseError databaseError) {
+                        @Override
+                        public void onCancelled(DatabaseError databaseError) {
 
-                    }
-                });
+                        }
+                    });
 
-                //Create an alert dialog, push a log when a move is selected.
-                new AlertDialog.Builder(MainActivity.this).setTitle("Select a move to broadcast").setAdapter(arrayAdapter, new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialogInterface, int i) {
-                        mDatabaseRoot.child("logs").child(mUser.getUid()).push().setValue(new com.manoeuvres.android.models.Log(dataSnapshots.get(i).getKey()));
-                    }
-                }).setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialogInterface, int i) {
+                    //Create an alert dialog, push a log when a move is selected.
+                    new AlertDialog.Builder(MainActivity.this).setTitle("Select a move to broadcast").setAdapter(arrayAdapter, new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialogInterface, int i) {
+                            mDatabaseRoot.child("logs").child(mUser.getUid()).push().setValue(new com.manoeuvres.android.models.Log(dataSnapshots.get(i).getKey()));
+                        }
+                    }).setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialogInterface, int i) {
 
-                    }
-                }).show();
+                        }
+                    }).show();
+                }
 
+                //If a move is in progress, stop that move.
+                else {
+                    mDatabaseRoot.child("logs").child(mUser.getUid()).limitToLast(1).addListenerForSingleValueEvent(new ValueEventListener() {
+                        @Override
+                        public void onDataChange(DataSnapshot dataSnapshot) {
+                            for (DataSnapshot ds : dataSnapshot.getChildren()) {
+                                mDatabaseRoot.child("logs").child(mUser.getUid()).child(ds.getKey()).child("endTime").setValue(System.currentTimeMillis());
+                            }
+                        }
+
+                        @Override
+                        public void onCancelled(DatabaseError databaseError) {
+
+                        }
+                    });
+                }
             }
         }
     }

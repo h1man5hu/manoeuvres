@@ -22,6 +22,7 @@ import com.google.firebase.database.ValueEventListener;
 import com.manoeuvres.android.models.Move;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -76,6 +77,7 @@ public class TimelineFragment extends Fragment {
         mLogsReference = mRoot.getRef().child("logs").child(mUser.getUid());
         mMovesReference = mRoot.getRef().child("moves").child(mUser.getUid());
 
+        //Get all the logs.
         mLogsReference.addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot dataSnapshot) {
@@ -83,6 +85,7 @@ public class TimelineFragment extends Fragment {
                 for (DataSnapshot log : dataSnapshot.getChildren()) {
                     mLogs.add(log.getValue(com.manoeuvres.android.models.Log.class));
                 }
+                Collections.reverse(mLogs);
                 mAdapter.notifyDataSetChanged();
             }
 
@@ -92,13 +95,12 @@ public class TimelineFragment extends Fragment {
             }
         });
 
+        //Get all the moves.
         mMovesReference.addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot dataSnapshot) {
                 mMoves.clear();
                 for (DataSnapshot move : dataSnapshot.getChildren()) {
-
-                    Log.v("TimelineFragmentLog", move.getValue(Move.class).getName());
                     mMoves.put(move.getKey(), move.getValue(Move.class));
                 }
 
@@ -125,10 +127,26 @@ public class TimelineFragment extends Fragment {
 
         @Override
         public void onBindViewHolder(TimelineAdapter.ViewHolder holder, int position) {
+            //Get the log to be displayed.
             com.manoeuvres.android.models.Log log = mLogs.get(position);
+
+            //Get the move details from the move id stored in the log.
             Move move = mMoves.get(log.getMoveId());
+
+            //Error handling.
             if (move != null) {
-                holder.mMoveTitle.setText(move.getName());
+
+                //If the move is in progress, display it in present tense.
+                if (log.getEndTime() != 0) {
+                    holder.mMoveTitle.setText(move.getPast());
+                    holder.mMoveSubtitle.setText("From " + log.getStartTime() + " to " + log.getEndTime());
+                }
+
+                //If the move is done, display it in paste tense.
+                else {
+                    holder.mMoveTitle.setText(move.getPresent());
+                    holder.mMoveSubtitle.setText("Since " + log.getStartTime());
+                }
             }
         }
 
@@ -139,10 +157,12 @@ public class TimelineFragment extends Fragment {
 
         public class ViewHolder extends RecyclerView.ViewHolder {
             public TextView mMoveTitle;
+            public TextView mMoveSubtitle;
 
             public ViewHolder(View view) {
                 super(view);
                 mMoveTitle = (TextView) view.findViewById(R.id.move_text);
+                mMoveSubtitle = (TextView) view.findViewById(R.id.move_subtext);
             }
         }
     }
