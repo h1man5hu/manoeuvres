@@ -2,25 +2,38 @@ package com.manoeuvres.android;
 
 
 import android.os.Bundle;
-import android.support.design.widget.FloatingActionButton;
+import android.util.Log;
+
+//v4-Support
 import android.support.v4.app.Fragment;
+
+//v7-Support
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
-import android.util.Log;
+
+//Views
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+
+//Widgets
 import android.widget.TextView;
 
+//Firebase authentication
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+
+//Firebase database
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
+
+//Models
 import com.manoeuvres.android.models.Move;
 
+//Collections
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -30,18 +43,24 @@ import java.util.Map;
 
 public class TimelineFragment extends Fragment {
 
+    private static final String TAG = "TimelineFragmentLog";    //For logging.
+    //RecyclerView.
     private RecyclerView mRecyclerView;
     private RecyclerView.Adapter mAdapter;
     private RecyclerView.LayoutManager mLayoutManager;
-
+    //Firebase database.
     private DatabaseReference mLogsReference;
     private DatabaseReference mMovesReference;
-    private DatabaseReference mRoot;
+    private DatabaseReference mRootReference;
     private FirebaseUser mUser;
-
-    private Map<String, Move> mMoves;
-    private List<com.manoeuvres.android.models.Log> mLogs;
-
+    //Current user in this fragment can be the signed-in user
+    //or one of the friends.
+    private String mCurrentUserId;
+    private Map<String, Move> mMoves;   //Used while displaying the moves in a dialog box.
+    private List<com.manoeuvres.android.models.Log> mLogs;  //Used while displaying logs in the recycler view.
+    //Will be used to allow customization to the current log if
+    //the signed-in user is the current user.
+    private boolean isFriend;
 
     public TimelineFragment() {
         // Required empty public constructor
@@ -51,12 +70,8 @@ public class TimelineFragment extends Fragment {
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
-        // Inflate the layout for this fragment
-        View rootView = inflater.inflate(R.layout.fragment_timeline, container, false);
 
-        //Display the floating action button.
-        FloatingActionButton fab = (FloatingActionButton) getActivity().findViewById(R.id.fab);
-        fab.show();
+        View rootView = inflater.inflate(R.layout.fragment_timeline, container, false);
 
         mRecyclerView = (RecyclerView) rootView.findViewById(R.id.recycler_view_timeline);
 
@@ -72,10 +87,20 @@ public class TimelineFragment extends Fragment {
         mMoves = new HashMap<>();
         mLogs = new ArrayList<>();
 
-        mRoot = FirebaseDatabase.getInstance().getReference();
+        //Get the current user from the fragment's arguments.
         mUser = FirebaseAuth.getInstance().getCurrentUser();
-        mLogsReference = mRoot.getRef().child("logs").child(mUser.getUid());
-        mMovesReference = mRoot.getRef().child("moves").child(mUser.getUid());
+        if (getArguments() != null) {
+            mCurrentUserId = getArguments().getString("firebaseUserId");
+            isFriend = true;
+        } else {
+            mCurrentUserId = mUser.getUid();
+            isFriend = false;
+        }
+
+        //Get the database references for the current user.
+        mRootReference = FirebaseDatabase.getInstance().getReference();
+        mLogsReference = mRootReference.getRef().child("logs").child(mCurrentUserId);
+        mMovesReference = mRootReference.getRef().child("moves").child(mCurrentUserId);
 
         //Get all the logs.
         mLogsReference.addValueEventListener(new ValueEventListener() {
