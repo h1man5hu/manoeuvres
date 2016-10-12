@@ -2,7 +2,6 @@ package com.manoeuvres.android;
 
 
 import android.os.Bundle;
-import android.util.Log;
 
 //v4-Support
 import android.support.v4.app.Fragment;
@@ -31,7 +30,9 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 
 //Models
+import com.manoeuvres.android.models.Log;
 import com.manoeuvres.android.models.Move;
+import com.manoeuvres.android.util.Constants;
 
 //Collections
 import java.util.ArrayList;
@@ -43,21 +44,24 @@ import java.util.Map;
 
 public class TimelineFragment extends Fragment {
 
-    private static final String TAG = "TimelineFragmentLog";    //For logging.
     //RecyclerView.
     private RecyclerView mRecyclerView;
     private RecyclerView.Adapter mAdapter;
     private RecyclerView.LayoutManager mLayoutManager;
+
     //Firebase database.
     private DatabaseReference mLogsReference;
     private DatabaseReference mMovesReference;
     private DatabaseReference mRootReference;
     private FirebaseUser mUser;
+
     //Current user in this fragment can be the signed-in user
     //or one of the friends.
     private String mCurrentUserId;
+
     private Map<String, Move> mMoves;   //Used while displaying the moves in a dialog box.
     private List<com.manoeuvres.android.models.Log> mLogs;  //Used while displaying logs in the recycler view.
+
     //Will be used to allow customization to the current log if
     //the signed-in user is the current user.
     private boolean isFriend;
@@ -90,17 +94,21 @@ public class TimelineFragment extends Fragment {
         //Get the current user from the fragment's arguments.
         mUser = FirebaseAuth.getInstance().getCurrentUser();
         if (getArguments() != null) {
-            mCurrentUserId = getArguments().getString("firebaseUserId");
+            mCurrentUserId = getArguments().getString(Constants.KEY_ARGUMENTS_FIREBASE_ID_USER_FRAGMENT_TIMELINE_);
             isFriend = true;
         } else {
-            mCurrentUserId = mUser.getUid();
-            isFriend = false;
+            try {
+                mCurrentUserId = mUser.getUid();
+                isFriend = false;
+            } catch (NullPointerException e) {
+                e.printStackTrace();
+            }
         }
 
         //Get the database references for the current user.
         mRootReference = FirebaseDatabase.getInstance().getReference();
-        mLogsReference = mRootReference.getRef().child("logs").child(mCurrentUserId);
-        mMovesReference = mRootReference.getRef().child("moves").child(mCurrentUserId);
+        mLogsReference = mRootReference.getRef().child(Constants.FIREBASE_DATABASE_REFERENCE_LOGS).child(mCurrentUserId);
+        mMovesReference = mRootReference.getRef().child(Constants.FIREBASE_DATABASE_REFERENCE_MOVES).child(mCurrentUserId);
 
         //Get all the logs.
         mLogsReference.addValueEventListener(new ValueEventListener() {
@@ -145,9 +153,8 @@ public class TimelineFragment extends Fragment {
 
         @Override
         public TimelineAdapter.ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
-            View v = LayoutInflater.from(parent.getContext()).inflate(R.layout.card_timeline, parent, false);
-            ViewHolder viewHolder = new ViewHolder(v);
-            return viewHolder;
+            View v = LayoutInflater.from(parent.getContext()).inflate(R.layout.list_item_cardview_timeline, parent, false);
+            return (new ViewHolder(v));
         }
 
         @Override
@@ -161,16 +168,16 @@ public class TimelineFragment extends Fragment {
             //Error handling.
             if (move != null) {
 
-                //If the move is in progress, display it in present tense.
+                //If the move is done, display it in past tense.
                 if (log.getEndTime() != 0) {
                     holder.mMoveTitle.setText(move.getPast());
-                    holder.mMoveSubtitle.setText("From " + log.getStartTime() + " to " + log.getEndTime());
+                    holder.mMoveSubtitle.setText(String.format(getResources().getString(R.string.log_sub_title_text_past), log.getStartTime(), log.getEndTime()));
                 }
 
-                //If the move is done, display it in paste tense.
+                //If the move is in progress, display it in present tense.
                 else {
                     holder.mMoveTitle.setText(move.getPresent());
-                    holder.mMoveSubtitle.setText("Since " + log.getStartTime());
+                    holder.mMoveSubtitle.setText(String.format(getResources().getString(R.string.log_sub_title_text_present), log.getStartTime()));
                 }
             }
         }
@@ -180,11 +187,12 @@ public class TimelineFragment extends Fragment {
             return mLogs.size();
         }
 
-        public class ViewHolder extends RecyclerView.ViewHolder {
-            public TextView mMoveTitle;
-            public TextView mMoveSubtitle;
 
-            public ViewHolder(View view) {
+        class ViewHolder extends RecyclerView.ViewHolder {
+            TextView mMoveTitle;
+            TextView mMoveSubtitle;
+
+            ViewHolder(View view) {
                 super(view);
                 mMoveTitle = (TextView) view.findViewById(R.id.move_text);
                 mMoveSubtitle = (TextView) view.findViewById(R.id.move_subtext);

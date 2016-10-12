@@ -39,4 +39,22 @@ public class Friend {
     public void setFirebaseId(String firebaseId) {
         mFirebaseId = firebaseId;
     }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (!(obj instanceof Friend)) {
+            return false;
+        }
+        Friend friend = (Friend) obj;
+        if (mFirebaseId.equals(friend.getFirebaseId())) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    @Override
+    public int hashCode() {
+        return mFirebaseId.hashCode();
+    }
 }

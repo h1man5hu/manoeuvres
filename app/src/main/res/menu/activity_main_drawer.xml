@@ -6,9 +6,8 @@
         android:checkableBehavior="single">
         <item
             android:id="@+id/nav_timeline"
-            android:icon="@drawable/ic_menu_camera"
             android:orderInCategory="1"
-            android:title="Timeline"/>
+            android:title="@string/nav_menu_timeline"/>
     </group>
 
     <group
@@ -16,36 +15,30 @@
         android:checkableBehavior="single">
         <item
             android:id="@+id/nav_followers"
-            android:icon="@drawable/ic_menu_gallery"
             android:orderInCategory="2"
-            android:title="Followers"/>
+            android:title="@string/nav_menu_followers"/>
         <item
             android:id="@+id/nav_following"
-            android:icon="@drawable/ic_menu_slideshow"
             android:orderInCategory="2"
-            android:title="Following"/>
+            android:title="@string/nav_menu_following"/>
         <item
             android:id="@+id/nav_find_friends"
-            android:icon="@android:drawable/ic_menu_search"
             android:orderInCategory="2"
-            android:title="Find friends"/>
+            android:title="@string/nav_menu_find_friends"/>
         <item
             android:id="@+id/nav_requests"
-            android:icon="@drawable/ic_menu_manage"
             android:orderInCategory="2"
-            android:title="Requests"/>
+            android:title="@string/nav_menu_requests"/>
 
     </group>
 
     <item
         android:id="@+id/nav_settings"
-        android:icon="@drawable/ic_menu_share"
         android:orderInCategory="3"
-        android:title="Settings"/>
+        android:title="@string/nav_menu_settings"/>
     <item
         android:id="@+id/nav_log_out"
-        android:icon="@drawable/ic_menu_send"
         android:orderInCategory="3"
-        android:title="Log out"/>
+        android:title="@string/nav_menu_log_out"/>
 
 </menu>

@@ -1,14 +1,12 @@
 package com.manoeuvres.android;
 
 import android.content.Intent;
+import android.content.res.Resources;
 import android.os.Bundle;
 
 //Support library.
 import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
-
-//Widgets
-import android.widget.Toast;
 
 //FacebookSDK
 import com.facebook.AccessToken;
@@ -41,6 +39,7 @@ import com.google.firebase.database.ValueEventListener;
 
 //Models
 import com.manoeuvres.android.models.Move;
+import com.manoeuvres.android.util.Constants;
 
 //JSON
 import org.json.JSONException;
@@ -48,8 +47,6 @@ import org.json.JSONObject;
 
 
 public class LoginActivity extends AppCompatActivity {
-
-    private static final String TAG = "LoginActivityLog";   //For logging.
 
     //Part of FacebookSDK. Receives a callback when the login for
     //Facebook button completes its tasks.
@@ -67,7 +64,7 @@ public class LoginActivity extends AppCompatActivity {
     private FirebaseAuth.AuthStateListener mAuthListener;
 
     //The user's basic profile will be uploaded into the Firebase database,
-    //and some default data app-related data will be set-up.
+    //and some default app-related data will be set-up.
     private FirebaseDatabase mDatabase;
 
     @Override
@@ -92,7 +89,7 @@ public class LoginActivity extends AppCompatActivity {
                     mDatabase = FirebaseDatabase.getInstance();
 
                     //Search for the signed-in user in the database.
-                    mDatabase.getReference("users").addListenerForSingleValueEvent(new ValueEventListener() {
+                    mDatabase.getReference(Constants.FIREBASE_DATABASE_REFERENCE_USERS).addListenerForSingleValueEvent(new ValueEventListener() {
 
                         @Override
                         public void onDataChange(DataSnapshot dataSnapshot) {
@@ -123,7 +120,7 @@ public class LoginActivity extends AppCompatActivity {
 
         // Initialize Facebook Login button
         LoginButton loginButton = (LoginButton) findViewById(R.id.button_login_facebook);
-        loginButton.setReadPermissions("email", "public_profile", "user_friends");
+        loginButton.setReadPermissions(Constants.FACEBOOK_PERMISSION_EMAIL, Constants.FACEBOOK_PERMISSION_PUBLIC_PROFILE, Constants.FACEBOOK_PERMISSION_USER_FRIENDS);
         loginButton.registerCallback(mCallbackManager, new FacebookCallback<LoginResult>() {
             @Override
             public void onSuccess(LoginResult loginResult) {
@@ -161,8 +158,7 @@ public class LoginActivity extends AppCompatActivity {
                         // the auth state listener will be notified and logic to handle the
                         // signed in user can be handled in the listener.
                         if (!task.isSuccessful()) {
-                            Toast.makeText(LoginActivity.this, "Authentication failed.",
-                                    Toast.LENGTH_SHORT).show();
+
                         }
                     }
                 });
@@ -184,20 +180,34 @@ public class LoginActivity extends AppCompatActivity {
     private void addUserToDatabase(final FirebaseUser firebaseUser) {
 
         //Create profile
-        DatabaseReference userProfileReference = mDatabase.getReference("users").child(firebaseUser.getUid());
-        userProfileReference.child("facebookId").setValue(mFacebookUserId);
-        userProfileReference.child("name").setValue(mName);
-        userProfileReference.child("online").setValue(false);
-        userProfileReference.child("lastSeenAt").setValue(System.currentTimeMillis());
+        DatabaseReference userProfileReference = mDatabase.getReference(Constants.FIREBASE_DATABASE_REFERENCE_USERS).child(firebaseUser.getUid());
+        userProfileReference.child(Constants.FIREBASE_DATABASE_REFERENCE_USERS_FACEBOOK_ID).setValue(mFacebookUserId);
+        userProfileReference.child(Constants.FIREBASE_DATABASE_REFERENCE_USERS_NAME).setValue(mName);
+        userProfileReference.child(Constants.FIREBASE_DATABASE_REFERENCE_USERS_ONLINE).setValue(false);
+        userProfileReference.child(Constants.FIREBASE_DATABASE_REFERENCE_USERS_LAST_SEEN).setValue(System.currentTimeMillis());
+
+        Resources resources = getResources();
 
         //Create moves
-        DatabaseReference userMovesReference = mDatabase.getReference("moves").child(firebaseUser.getUid());
-        userMovesReference.push().setValue(new Move("Drive", "Driving", "Drove"));
-        userMovesReference.push().setValue(new Move("Eat", "Eating", "Ate"));
-        userMovesReference.push().setValue(new Move("Relax", "Relaxing", "Relaxed"));
-        userMovesReference.push().setValue(new Move("Sleep", "Sleeping", "Slept"));
-        userMovesReference.push().setValue(new Move("Study", "Studying", "Studied"));
-        userMovesReference.push().setValue(new Move("Work", "Working", "Worked"));
+        DatabaseReference userMovesReference = mDatabase.getReference(Constants.FIREBASE_DATABASE_REFERENCE_MOVES).child(firebaseUser.getUid());
+        userMovesReference.push().setValue(new Move(resources.getString(R.string.move_drive_name),
+                resources.getString(R.string.move_drive_present),
+                resources.getString(R.string.move_drive_past)));
+        userMovesReference.push().setValue(new Move(resources.getString(R.string.move_eat_name),
+                resources.getString(R.string.move_eat_present),
+                resources.getString(R.string.move_eat_past)));
+        userMovesReference.push().setValue(new Move(resources.getString(R.string.move_relax_name),
+                resources.getString(R.string.move_relax_present),
+                resources.getString(R.string.move_relax_past)));
+        userMovesReference.push().setValue(new Move(resources.getString(R.string.move_sleep_name),
+                resources.getString(R.string.move_sleep_present),
+                resources.getString(R.string.move_sleep_past)));
+        userMovesReference.push().setValue(new Move(resources.getString(R.string.move_study_name),
+                resources.getString(R.string.move_study_present),
+                resources.getString(R.string.move_study_past)));
+        userMovesReference.push().setValue(new Move(resources.getString(R.string.move_work_name),
+                resources.getString(R.string.move_work_present),
+                resources.getString(R.string.move_work_past)));
 
         //Start MainActivity.
         Intent intent = new Intent(LoginActivity.this, MainActivity.class);
@@ -215,8 +225,8 @@ public class LoginActivity extends AppCompatActivity {
                     @Override
                     public void onCompleted(JSONObject object, GraphResponse response) {
                         try {
-                            mFacebookUserId = object.getLong("id");
-                            mName = object.getString("name");
+                            mFacebookUserId = object.getLong(Constants.FACEBOOK_FIELD_GRAPH_REQUEST_ID);
+                            mName = object.getString(Constants.FACEBOOK_FIELD_GRAPH_REQUEST_NAME);
                         } catch (JSONException e) {
                             e.printStackTrace();
                         }
@@ -224,7 +234,7 @@ public class LoginActivity extends AppCompatActivity {
                 });
 
         Bundle parameters = new Bundle();
-        parameters.putString("fields", "id,name");
+        parameters.putString(Constants.FACEBOOK_FIELD_GRAPH_REQUEST_FIELDS, Constants.FACEBOOK_FIELD_GRAPH_REQUEST_ID + "," + Constants.FACEBOOK_FIELD_GRAPH_REQUEST_NAME);
         request.setParameters(parameters);
         request.executeAsync();
     }
