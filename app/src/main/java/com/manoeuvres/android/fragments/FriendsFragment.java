@@ -1,78 +1,162 @@
 package com.manoeuvres.android.fragments;
 
 
+import android.app.Activity;
+import android.content.SharedPreferences;
 import android.os.Bundle;
-import android.util.Log;
-
-//Support library
+import android.preference.PreferenceManager;
+import android.support.annotation.Nullable;
+import android.support.design.widget.NavigationView;
 import android.support.v4.app.Fragment;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
-
-//Views
 import android.view.LayoutInflater;
+import android.view.Menu;
 import android.view.View;
 import android.view.ViewGroup;
-
-//Widgets
 import android.widget.Button;
 import android.widget.TextView;
-
-//FacebookSDK
 import com.facebook.AccessToken;
 import com.facebook.GraphRequest;
 import com.facebook.GraphResponse;
-
-//Models
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.database.ChildEventListener;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
-import com.google.firebase.database.GenericTypeIndicator;
 import com.google.firebase.database.ValueEventListener;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import com.manoeuvres.android.R;
 import com.manoeuvres.android.models.Friend;
 import com.manoeuvres.android.util.Constants;
-
-//JSON
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-//Collections
+import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.List;
 
 
 public class FriendsFragment extends Fragment {
 
+    /*
+     * This fragment can be used to remove followers, un-follow friends, follow friends, and accept
+     * follow requests.
+     */
+    private int mFragmentBehavior;
+
+    private FirebaseUser mUser;
+
     private List<Friend> mAllFriends;
     private List<Friend> mFollowing;
     private List<Friend> mFollowers;
     private List<Friend> mRequests;
-    private List<Friend> mFriends;
+    private List<Friend> mUnfollowedFriends;
 
-    //RecyclerView.
     private RecyclerView mRecyclerView;
     private RecyclerView.Adapter mAdapter;
     private RecyclerView.LayoutManager mLayoutManager;
 
-    //Firebase Database.
     private FirebaseDatabase mDatabase;
     private DatabaseReference mRootReference;
     private DatabaseReference mFollowersReference;
     private DatabaseReference mFollowingReference;
     private DatabaseReference mRequestsReference;
     private DatabaseReference mUsersReference;
+    private DatabaseReference mMetaReference;
+    private DatabaseReference mMetaFollowingReference;
+    private DatabaseReference mMetaFollowersReference;
+    private DatabaseReference mMetaRequestsReference;
+    private DatabaseReference mUserFollowersReference;
+    private DatabaseReference mUserFollowingReference;
+    private DatabaseReference mUserRequestsReference;
+    private DatabaseReference mUserFollowersCountReference;
+    private DatabaseReference mUserFollowingCountReference;
+    private DatabaseReference mUserRequestsCountReference;
 
-    private FirebaseUser mUser;
+    private ChildEventListener mUserFollowersListener;
+    private ChildEventListener mUserFollowingListener;
+    private ChildEventListener mUserRequestsListener;
+    private ValueEventListener mUserFollowingCountListener;
+    private ValueEventListener mUserFollowersCountListener;
+    private ValueEventListener mUserRequestsCountListener;
 
-    private int mFragmentBehavior;
+    /*
+     * These are useful in multiple scenarios.
+     * Used to check if all the data has been loaded or not when using ChildEventListener.
+     * Used to check if there is some difference between the cache and the Firebase database.
+     */
+    private int mFollowingCount;
+    private int mFollowersCount;
+    private int mRequestsCount;
+
+    private SharedPreferences mSharedPreferences;
+
+    private NavigationView mNavigationView;
+    private Menu mNavigationMenu;
+
+    private Activity mParentActivity;
+
+    private Gson mGson;
 
     public FriendsFragment() {
         // Required empty public constructor
+    }
+
+    public static FriendsFragment newInstance(int fragmentBehavior) {
+        FriendsFragment fragment = new FriendsFragment();
+
+        Bundle args = new Bundle();
+        args.putInt(Constants.KEY_ARGUMENTS_FRAGMENT_BEHAVIOR_FRIENDS, fragmentBehavior);
+
+        fragment.setArguments(args);
+        return fragment;
+    }
+
+    @Override
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        mFragmentBehavior = getArguments().getInt(Constants.KEY_ARGUMENTS_FRAGMENT_BEHAVIOR_FRIENDS);
+
+        mUser = FirebaseAuth.getInstance().getCurrentUser();
+
+        mDatabase = FirebaseDatabase.getInstance();
+        mRootReference = mDatabase.getReference();
+        mMetaReference = mRootReference.child(Constants.FIREBASE_DATABASE_REFERENCE_META);
+        mUsersReference = mRootReference.child(Constants.FIREBASE_DATABASE_REFERENCE_USERS);
+        mFollowersReference = mRootReference.child(Constants.FIREBASE_DATABASE_REFERENCE_FOLLOWERS);
+        mUserFollowersReference = mFollowersReference.child(mUser.getUid());
+        mMetaFollowersReference = mMetaReference.child(Constants.FIREBASE_DATABASE_REFERENCE_META_FOLLOWERS);
+        mUserFollowersCountReference = mMetaFollowersReference.child(mUser.getUid()).child(Constants.FIREBASE_DATABASE_REFERENCE_META_FOLLOWERS_COUNT);
+        mFollowingReference = mRootReference.child(Constants.FIREBASE_DATABASE_REFERENCE_FOLLOWING);
+        mUserFollowingReference = mFollowingReference.child(mUser.getUid());
+        mMetaFollowingReference = mMetaReference.child(Constants.FIREBASE_DATABASE_REFERENCE_META_FOLLOWING);
+        mUserFollowingCountReference = mMetaFollowingReference.child(mUser.getUid()).child(Constants.FIREBASE_DATABASE_REFERENCE_META_FOLLOWING_COUNT);
+        mRequestsReference = mRootReference.child(Constants.FIREBASE_DATABASE_REFERENCE_REQUESTS);
+        mUserRequestsReference = mRequestsReference.child(mUser.getUid());
+        mMetaRequestsReference = mMetaReference.child(Constants.FIREBASE_DATABASE_REFERENCE_META_REQUESTS);
+        mUserRequestsCountReference = mMetaRequestsReference.child(mUser.getUid()).child(Constants.FIREBASE_DATABASE_REFERENCE_META_REQUESTS_COUNT);
+
+        mSharedPreferences = PreferenceManager.getDefaultSharedPreferences(getActivity().getApplicationContext());
+
+        mGson = new Gson();
+
+        /* Caching: Load the details of the Facebook friends of the user from the shared preferences file.
+         * Update the list when network can be accessed. */
+        String allFriendsList = mSharedPreferences.getString(Constants.KEY_SHARED_PREF_DATA_FRIENDS, "");
+        Type type = new TypeToken<List<Friend>>() {
+        }.getType();
+        mAllFriends = mGson.fromJson(allFriendsList, type);
+        if (mAllFriends == null) {
+            mAllFriends = new ArrayList<>();
+        }
+
+        updateAllFriends();
     }
 
     @Override
@@ -80,27 +164,8 @@ public class FriendsFragment extends Fragment {
 
         View rootView = inflater.inflate(R.layout.fragment_friends, container, false);
 
-        //Firebase database initialization.
-        mDatabase = FirebaseDatabase.getInstance();
-        mRootReference = mDatabase.getReference();
-        mUsersReference = mRootReference.child(Constants.FIREBASE_DATABASE_REFERENCE_USERS);
-
-        mAllFriends = new ArrayList<>();
-        mFollowing = new ArrayList<>();
-        mFollowers = new ArrayList<>();
-        mFriends = new ArrayList<>();
-        mRequests = new ArrayList<>();
-
-        mUser = FirebaseAuth.getInstance().getCurrentUser();
-
-        //Get all the Facebook friends of the current user by a GraphRequest.
-        getAllFriends();
-
-        mFragmentBehavior = getArguments().getInt(Constants.KEY_ARGUMENTS_FRAGMENT_BEHAVIOR_FRIENDS);
-
         mRecyclerView = (RecyclerView) rootView.findViewById(R.id.recycler_view_friends);
 
-        //To improve performance if changes in content do not change the layout size of the RecyclerView.
         mRecyclerView.setHasFixedSize(true);
 
         mLayoutManager = new LinearLayoutManager(getContext());
@@ -109,10 +174,66 @@ public class FriendsFragment extends Fragment {
         mAdapter = new FriendsAdapter();
         mRecyclerView.setAdapter(mAdapter);
 
+        mParentActivity = getActivity();
+        mNavigationView = (NavigationView) mParentActivity.findViewById(R.id.nav_view);
+
         return rootView;
     }
 
-    private void getAllFriends() {
+    @Override
+    public void onStart() {
+        super.onStart();
+
+        mNavigationMenu = mNavigationView.getMenu();
+        if (mFragmentBehavior == Constants.FRAGMENT_FIND_FRIENDS) {
+            mParentActivity.setTitle(R.string.title_activity_main_find_friends);
+            mNavigationMenu.findItem(R.id.nav_find_friends).setChecked(true);
+        } else if (mFragmentBehavior == Constants.FRAGMENT_FOLLOWERS) {
+            mParentActivity.setTitle(R.string.title_activity_main_followers);
+            mNavigationMenu.findItem(R.id.nav_followers).setChecked(true);
+        } else if (mFragmentBehavior == Constants.FRAGMENT_FOLLOWING) {
+            mParentActivity.setTitle(R.string.title_activity_main_following);
+            mNavigationMenu.findItem(R.id.nav_following).setChecked(true);
+        } else if (mFragmentBehavior == Constants.FRAGMENT_REQUESTS) {
+            mParentActivity.setTitle(R.string.title_activity_main_requests);
+            mNavigationMenu.findItem(R.id.nav_requests).setChecked(true);
+        }
+
+        if (mFragmentBehavior == Constants.FRAGMENT_FOLLOWERS) {
+            getFollowers();
+        } else if (mFragmentBehavior == Constants.FRAGMENT_FOLLOWING || mFragmentBehavior == Constants.FRAGMENT_FIND_FRIENDS) {
+            /* In case of finding friends, friends which the user is already following shouldn't be displayed. */
+            getFollowing();
+        } else if (mFragmentBehavior == Constants.FRAGMENT_REQUESTS) {
+            getRequests();
+        }
+    }
+
+    @Override
+    public void onStop() {
+        super.onStop();
+
+        /*
+         * The number of followers, requests and following should be updated in the cache as and when
+         * there is a change in the Firebase database. Updating them only here can result in unnecessary
+         * notifications.
+         */
+
+        if (mFollowersReference != null && mUserFollowersListener != null)
+            mFollowersReference.removeEventListener(mUserFollowersListener);
+        if (mFollowingReference != null && mUserFollowingListener != null)
+            mFollowingReference.removeEventListener(mUserFollowingListener);
+        if (mRequestsReference != null && mUserRequestsListener != null)
+            mRequestsReference.removeEventListener(mUserRequestsListener);
+        if (mMetaFollowingReference != null && mUserFollowingCountListener != null)
+            mMetaFollowingReference.removeEventListener(mUserFollowingCountListener);
+        if (mMetaFollowersReference != null && mUserFollowersCountListener != null)
+            mMetaFollowersReference.removeEventListener(mUserFollowersCountListener);
+        if (mMetaRequestsReference != null && mUserRequestsCountListener != null)
+            mMetaRequestsReference.removeEventListener(mUserRequestsCountListener);
+    }
+
+    private void updateAllFriends() {
         GraphRequest request = GraphRequest.newMeRequest(
                 AccessToken.getCurrentAccessToken(),
                 new GraphRequest.GraphJSONObjectCallback() {
@@ -121,20 +242,30 @@ public class FriendsFragment extends Fragment {
                         JSONArray friends;
                         try {
                             friends = object.getJSONObject(Constants.FACEBOOK_FIELD_GRAPH_REQUEST_FRIENDS).getJSONArray(Constants.FACEBOOK_FIELD_GRAPH_REQUEST_DATA);
-                            for (int i = 0; i < friends.length(); i++) {
+                            final int numberOfFriends = friends.length();
+                            for (int i = 0; i < numberOfFriends; i++) {
                                 JSONObject friendJSONObject = friends.getJSONObject(i);
-                                final Friend friend = new Friend(friendJSONObject.getLong(Constants.FACEBOOK_FIELD_GRAPH_REQUEST_ID), friendJSONObject.getString(Constants.FACEBOOK_FIELD_GRAPH_REQUEST_NAME));
-                                mUsersReference.orderByChild(Constants.FIREBASE_DATABASE_REFERENCE_USERS_FACEBOOK_ID).equalTo(friend.getFacebookId()).addListenerForSingleValueEvent(new ValueEventListener() {
+                                final Friend friend = new Friend(friendJSONObject.getLong(Constants.FACEBOOK_FIELD_GRAPH_REQUEST_ID),
+                                        friendJSONObject.getString(Constants.FACEBOOK_FIELD_GRAPH_REQUEST_NAME));
+                                mUsersReference.orderByChild(Constants.FIREBASE_DATABASE_REFERENCE_USERS_FACEBOOK_ID).
+                                        equalTo(friend.getFacebookId()).addListenerForSingleValueEvent(new ValueEventListener() {
                                     @Override
                                     public void onDataChange(DataSnapshot dataSnapshot) {
                                         friend.setFirebaseId(dataSnapshot.getChildren().iterator().next().getKey());
-                                        mAllFriends.add(friend);
+                                        int index = mAllFriends.indexOf(friend);
+                                        if (index != -1) {
+                                            mAllFriends.remove(index);
+                                            mAllFriends.add(index, friend);
+                                        } else {
+                                            mAllFriends.add(friend);
+                                        }
 
-                                        // Calling these methods from onCreateView can cause problems, since mAllFriends stores the details of
-                                        // all the friends. These methods just get their Firebase id.
-                                        getFollowers();
-                                        getFollowing();
-                                        getRequests();
+
+                                        /* If all the friends have been loaded, update the cache. */
+                                        if (mAllFriends.size() == numberOfFriends) {
+                                            mSharedPreferences.edit().putString(Constants.KEY_SHARED_PREF_DATA_FRIENDS, mGson.toJson(mAllFriends)).apply();
+                                        }
+
                                     }
 
                                     @Override
@@ -156,95 +287,236 @@ public class FriendsFragment extends Fragment {
     }
 
     private void getFollowers() {
-        mFollowersReference = mRootReference.child(Constants.FIREBASE_DATABASE_REFERENCE_FOLLOWERS);
-        final GenericTypeIndicator<List<String>> type = new GenericTypeIndicator<List<String>>() {
-        };
-        mFollowersReference.child(mUser.getUid()).addValueEventListener(new ValueEventListener() {
-            @Override
-            public void onDataChange(DataSnapshot dataSnapshot) {
-                mFollowers.clear();
-                List<String> ids = dataSnapshot.getValue(type);
-                try {
-                    for (String id : ids) {
-                        if (id != null) {
-                            Friend friend = new Friend();
-                            friend.setFirebaseId(id);
-                            mFollowers.add(friend);
+        if (mFollowers == null) {
+            mFollowers = new ArrayList<>();
+        }
+
+        if (mUserFollowersCountListener == null) {
+            mUserFollowersCountListener = mUserFollowersCountReference.addValueEventListener(new ValueEventListener() {
+                @Override
+                public void onDataChange(DataSnapshot dataSnapshot) {
+                    if (dataSnapshot.getValue() != null) {
+                        mFollowersCount = Integer.valueOf(dataSnapshot.getValue().toString());
+                    }
+
+                    if (mFollowersCount > 0) {
+                        if (mUserFollowersListener == null) {
+                            mUserFollowersListener = mUserFollowersReference.addChildEventListener(new ChildEventListener() {
+                                @Override
+                                public void onChildAdded(DataSnapshot dataSnapshot, String s) {
+                                    Friend friend = new Friend(dataSnapshot.getValue().toString());
+                                    if (!mFollowers.contains(friend)) {
+                                        mFollowers.add(friend);
+                                        mAdapter.notifyItemInserted(mFollowers.size() - 1);
+                                        mSharedPreferences.edit().putInt(Constants.KEY_SHARED_PREF_COUNT_FOLLOWERS, mFollowers.size()).apply();
+                                    }
+                                }
+
+                                @Override
+                                public void onChildRemoved(DataSnapshot dataSnapshot) {
+                                    Friend friend = new Friend(dataSnapshot.getValue().toString());
+                                    int index = mFollowers.indexOf(friend);
+                                    if (index != -1) {
+                                        mFollowers.remove(index);
+                                        mAdapter.notifyItemRemoved(index);
+                                        mSharedPreferences.edit().putInt(Constants.KEY_SHARED_PREF_COUNT_FOLLOWERS, mFollowers.size()).apply();
+                                    }
+                                }
+
+                                @Override
+                                public void onChildChanged(DataSnapshot dataSnapshot, String s) {
+
+                                }
+
+                                @Override
+                                public void onChildMoved(DataSnapshot dataSnapshot, String s) {
+
+                                }
+
+                                @Override
+                                public void onCancelled(DatabaseError databaseError) {
+
+                                }
+                            });
                         }
                     }
-                } catch (NullPointerException e) {
-                    e.printStackTrace();
                 }
-                mAdapter.notifyDataSetChanged();
-            }
 
-            @Override
-            public void onCancelled(DatabaseError databaseError) {
+                @Override
+                public void onCancelled(DatabaseError databaseError) {
 
-            }
-        });
+                }
+            });
+        }
     }
 
     private void getFollowing() {
-        mFollowingReference = mRootReference.child(Constants.FIREBASE_DATABASE_REFERENCE_FOLLOWING);
-        final GenericTypeIndicator<List<String>> type = new GenericTypeIndicator<List<String>>() {
-        };
-        mFollowingReference.child(mUser.getUid()).addValueEventListener(new ValueEventListener() {
-            @Override
-            public void onDataChange(DataSnapshot dataSnapshot) {
-                mFollowing.clear();
-                List<String> ids = dataSnapshot.getValue(type);
-                try {
-                    for (String id : ids) {
-                        if (id != null) {
-                            Friend friend = new Friend();
-                            friend.setFirebaseId(id);
-                            mFollowing.add(friend);
+        if (mFollowing == null) {
+            mFollowing = new ArrayList<>();
+        }
+
+        if (mFragmentBehavior == Constants.FRAGMENT_FIND_FRIENDS) {
+            if (mUnfollowedFriends == null) {
+                mUnfollowedFriends = new ArrayList<>();
+            }
+        }
+
+        if (mUserFollowingCountListener == null) {
+            mUserFollowingCountListener = mUserFollowingCountReference.addValueEventListener(new ValueEventListener() {
+                @Override
+                public void onDataChange(DataSnapshot dataSnapshot) {
+                    if (dataSnapshot.getValue() != null) {
+                        mFollowingCount = Integer.valueOf(dataSnapshot.getValue().toString());
+                    }
+
+
+                    if (mFollowingCount == 0) {
+                        if (mFragmentBehavior == Constants.FRAGMENT_FIND_FRIENDS) {
+                            mUnfollowedFriends = new ArrayList<>(mAllFriends);
+                            mUnfollowedFriends.removeAll(mFollowing);
+                            mAdapter.notifyDataSetChanged();
                         }
                     }
-                } catch (NullPointerException e) {
-                    e.printStackTrace();
+
+                    if (mFollowingCount > 0) {
+                        if (mUserFollowingListener == null) {
+                            mUserFollowingListener = mUserFollowingReference.addChildEventListener(new ChildEventListener() {
+                                @Override
+                                public void onChildAdded(DataSnapshot dataSnapshot, String s) {
+                                    Friend friend = new Friend(dataSnapshot.getValue().toString());
+                                    if (!mFollowing.contains(friend)) {
+                                        mFollowing.add(friend);
+                                        if (mFragmentBehavior == Constants.FRAGMENT_FOLLOWING) {
+                                            mAdapter.notifyItemInserted(mFollowing.size() - 1);
+                                        }
+                                        mSharedPreferences.edit().putInt(Constants.KEY_SHARED_PREF_COUNT_FOLLOWING, mFollowing.size()).apply();
+                                    }
+
+                                    if (mFollowing.size() == mFollowingCount) {
+                                        if (mFragmentBehavior == Constants.FRAGMENT_FIND_FRIENDS) {
+                                            mUnfollowedFriends = new ArrayList<>(mAllFriends);
+                                            mUnfollowedFriends.removeAll(mFollowing);
+                                            mAdapter.notifyDataSetChanged();
+                                        }
+                                    }
+                                }
+
+                                @Override
+                                public void onChildRemoved(DataSnapshot dataSnapshot) {
+                                    Friend friend = new Friend(dataSnapshot.getValue().toString());
+                                    int index = mFollowing.indexOf(friend);
+                                    if (index != -1) {
+                                        mFollowing.remove(index);
+                                        if (mFragmentBehavior == Constants.FRAGMENT_FOLLOWING) {
+                                            mAdapter.notifyItemRemoved(index);
+                                        }
+                                        mSharedPreferences.edit().putInt(Constants.KEY_SHARED_PREF_COUNT_FOLLOWING, mFollowing.size()).apply();
+                                    }
+
+                            /* If a friend is un-followed, it is now available to be followed. */
+                                    if (mFollowing.size() == mFollowingCount) {
+                                        if (mFragmentBehavior == Constants.FRAGMENT_FIND_FRIENDS) {
+                                            mUnfollowedFriends = new ArrayList<>(mAllFriends);
+                                            mUnfollowedFriends.removeAll(mFollowing);
+                                            mAdapter.notifyDataSetChanged();
+                                        }
+                                    }
+                                }
+
+                                @Override
+                                public void onChildChanged(DataSnapshot dataSnapshot, String s) {
+
+                                }
+
+                                @Override
+                                public void onChildMoved(DataSnapshot dataSnapshot, String s) {
+
+                                }
+
+                                @Override
+                                public void onCancelled(DatabaseError databaseError) {
+
+                                }
+                            });
+                        }
+                    } else if (mFollowingCount == 0) {    //If the user is not following anyone, all the friends are available to be followed.
+                        if (mFragmentBehavior == Constants.FRAGMENT_FIND_FRIENDS) {
+                            mUnfollowedFriends = new ArrayList<>(mAllFriends);
+                            mAdapter.notifyDataSetChanged();
+                        }
+                    }
                 }
-                mFriends = new ArrayList<>(mAllFriends);
-                mFriends.removeAll(mFollowing);
-                mAdapter.notifyDataSetChanged();
-            }
 
-            @Override
-            public void onCancelled(DatabaseError databaseError) {
+                @Override
+                public void onCancelled(DatabaseError databaseError) {
 
-            }
-        });
+                }
+            });
+        }
     }
 
     private void getRequests() {
-        mRequestsReference = mRootReference.child(Constants.FIREBASE_DATABASE_REFERENCE_REQUESTS);
-        final GenericTypeIndicator<List<String>> type = new GenericTypeIndicator<List<String>>() {
-        };
-        mRequestsReference.child(mUser.getUid()).addValueEventListener(new ValueEventListener() {
-            @Override
-            public void onDataChange(DataSnapshot dataSnapshot) {
-                mRequests.clear();
-                List<String> ids = dataSnapshot.getValue(type);
-                try {
-                    for (String id : ids) {
-                        if (id != null) {
-                            Friend friend = new Friend();
-                            friend.setFirebaseId(id);
-                            mRequests.add(friend);
+        if (mRequests == null) {
+            mRequests = new ArrayList<>();
+        }
+
+        if (mUserRequestsCountListener == null) {
+            mUserRequestsCountListener = mUserRequestsCountReference.addValueEventListener(new ValueEventListener() {
+                @Override
+                public void onDataChange(DataSnapshot dataSnapshot) {
+                    if (dataSnapshot.getValue() != null) {
+                        mRequestsCount = Integer.valueOf(dataSnapshot.getValue().toString());
+                    }
+
+                    if (mRequestsCount > 0) {
+                        if (mUserRequestsListener == null) {
+                            mUserRequestsListener = mUserRequestsReference.addChildEventListener(new ChildEventListener() {
+                                @Override
+                                public void onChildAdded(DataSnapshot dataSnapshot, String s) {
+                                    Friend friend = new Friend(dataSnapshot.getValue().toString());
+                                    if (!mRequests.contains(friend)) {
+                                        mRequests.add(friend);
+                                        mAdapter.notifyItemInserted(mRequests.size() - 1);
+                                        mSharedPreferences.edit().putInt(Constants.KEY_SHARED_PREF_COUNT_REQUESTS, mRequests.size()).apply();
+                                    }
+                                }
+
+                                @Override
+                                public void onChildRemoved(DataSnapshot dataSnapshot) {
+                                    Friend friend = new Friend(dataSnapshot.getValue().toString());
+                                    int index = mRequests.indexOf(friend);
+                                    if (index != -1) {
+                                        mRequests.remove(index);
+                                        mAdapter.notifyItemRemoved(index);
+                                        mSharedPreferences.edit().putInt(Constants.KEY_SHARED_PREF_COUNT_REQUESTS, mRequests.size()).apply();
+                                    }
+                                }
+
+                                @Override
+                                public void onChildChanged(DataSnapshot dataSnapshot, String s) {
+
+                                }
+
+                                @Override
+                                public void onChildMoved(DataSnapshot dataSnapshot, String s) {
+
+                                }
+
+                                @Override
+                                public void onCancelled(DatabaseError databaseError) {
+
+                                }
+                            });
                         }
                     }
-                } catch (NullPointerException e) {
-                    e.printStackTrace();
                 }
-                mAdapter.notifyDataSetChanged();
-            }
 
-            @Override
-            public void onCancelled(DatabaseError databaseError) {
+                @Override
+                public void onCancelled(DatabaseError databaseError) {
 
-            }
-        });
+                }
+            });
+        }
     }
 
     public class FriendsAdapter extends RecyclerView.Adapter<FriendsAdapter.ViewHolder> {
@@ -258,32 +530,65 @@ public class FriendsFragment extends Fragment {
         @Override
         public void onBindViewHolder(final FriendsAdapter.ViewHolder holder, int position) {
             if (mFragmentBehavior == Constants.FRAGMENT_FOLLOWING) {
-                holder.mFriendName.setText(mAllFriends.get(mAllFriends.indexOf(mFollowing.get(position))).getName());
+                if (mFollowing.size() > position) {
+                    Friend friend = mFollowing.get(position);
+                    int index = mAllFriends.indexOf(friend);
+                    if (index != -1) {
+                        friend = mAllFriends.get(index);
+                        holder.mFriendName.setText(friend.getName());
+                    }
+                }
+
             } else if (mFragmentBehavior == Constants.FRAGMENT_FOLLOWERS) {
-                holder.mFriendName.setText(mAllFriends.get(mAllFriends.indexOf(mFollowers.get(position))).getName());
+                if (mFollowers.size() > position) {
+                    Friend friend = mFollowers.get(position);
+                    int index = mAllFriends.indexOf(friend);
+                    if (index != -1) {
+                        friend = mAllFriends.get(index);
+                        holder.mFriendName.setText(friend.getName());
+                    }
+                }
+
             } else if (mFragmentBehavior == Constants.FRAGMENT_FIND_FRIENDS) {
-                Friend friend = mAllFriends.get(mAllFriends.indexOf(mFriends.get(position)));
-                holder.mFriendName.setText(friend.getName());
-                holder.mButton.setText(R.string.button_text_follow);
-                mRequestsReference.child(friend.getFirebaseId()).addListenerForSingleValueEvent(new ValueEventListener() {
-                    @Override
-                    public void onDataChange(DataSnapshot dataSnapshot) {
-                        for (DataSnapshot snapshot : dataSnapshot.getChildren()) {
-                            if (snapshot.getValue().equals(mUser.getUid())) {
-                                holder.mButton.setText(R.string.button_text_cancel_request);
+                if (mUnfollowedFriends.size() > position) {
+                    Friend friend = mUnfollowedFriends.get(position);
+                    int index = mAllFriends.indexOf(friend);
+                    if (index != -1) {
+                        friend = mAllFriends.get(index);
+                        holder.mFriendName.setText(friend.getName());
+                        holder.mButton.setText(R.string.button_text_follow);
+
+                        /* If a request has already been sent, update the button to perform cancellation. */
+                        mRequestsReference.child(friend.getFirebaseId()).addListenerForSingleValueEvent(new ValueEventListener() {
+                            @Override
+                            public void onDataChange(DataSnapshot dataSnapshot) {
+                                for (DataSnapshot snapshot : dataSnapshot.getChildren()) {
+                                    if (snapshot.getValue() != null) {
+                                        if (snapshot.getValue().equals(mUser.getUid())) {
+                                            holder.mButton.setText(R.string.button_text_cancel_request);
+                                        }
+                                    } else {
+                                        break;
+                                    }
+                                }
                             }
-                        }
+
+                            @Override
+                            public void onCancelled(DatabaseError databaseError) {
+
+                            }
+                        });
                     }
-
-                    @Override
-                    public void onCancelled(DatabaseError databaseError) {
-
+                }
+            } else if (mFragmentBehavior == Constants.FRAGMENT_REQUESTS) {
+                if (mRequests.size() > position) {
+                    Friend friend = mRequests.get(position);
+                    int index = mAllFriends.indexOf(friend);
+                    if (index != -1) {
+                        friend = mAllFriends.get(index);
+                        holder.mFriendName.setText(friend.getName());
                     }
-                });
-
-
-            } else {
-                holder.mFriendName.setText(mAllFriends.get(mAllFriends.indexOf(mRequests.get(position))).getName());
+                }
             }
         }
 
@@ -294,7 +599,7 @@ public class FriendsFragment extends Fragment {
             } else if (mFragmentBehavior == Constants.FRAGMENT_FOLLOWERS) {
                 return mFollowers.size();
             } else if (mFragmentBehavior == Constants.FRAGMENT_FIND_FRIENDS) {
-                return mFriends.size();
+                return mUnfollowedFriends.size();
             } else {
                 return mRequests.size();
             }
@@ -337,16 +642,40 @@ public class FriendsFragment extends Fragment {
                 }
             }
 
+            /*
+             * 1. Decrement by 1 the count of the number of friends the user is following.
+             * 2. Remove the Firebase Id of the friend from the list of friends the user is following.
+             * 3. Decrement by 1 the count of the number of followers of the friend.
+             * 4. Remove the Firebase Id of the user from the list of followers of the friend.
+             */
             void unfollowFriend() {
                 final Friend friend = mAllFriends.get(mAllFriends.indexOf(mFollowing.get(getAdapterPosition())));
-                mFollowingReference.child(mUser.getUid()).addListenerForSingleValueEvent(new ValueEventListener() {
+
+                mUserFollowingCountReference.addListenerForSingleValueEvent(new ValueEventListener() {
                     @Override
                     public void onDataChange(DataSnapshot dataSnapshot) {
-                        for (DataSnapshot snapshot : dataSnapshot.getChildren()) {
-                            if (snapshot.getValue().equals(friend.getFirebaseId())) {
-                                mFollowingReference.child(mUser.getUid()).child(snapshot.getKey()).setValue(null);
-                            }
+                        if (dataSnapshot.getValue() != null) {
+                            int count = Integer.valueOf(dataSnapshot.getValue().toString());
+                            mUserFollowingCountReference.setValue(count - 1);
                         }
+
+                        final DatabaseReference userFollowingReference = mFollowingReference.child(mUser.getUid());
+                        userFollowingReference.addListenerForSingleValueEvent(new ValueEventListener() {
+                            @Override
+                            public void onDataChange(DataSnapshot dataSnapshot) {
+                                for (DataSnapshot snapshot : dataSnapshot.getChildren()) {
+                                    if (snapshot.getValue().equals(friend.getFirebaseId())) {
+                                        userFollowingReference.child(snapshot.getKey()).setValue(null);
+                                    }
+                                }
+                            }
+
+                            @Override
+                            public void onCancelled(DatabaseError databaseError) {
+
+                            }
+                        });
+
                     }
 
                     @Override
@@ -354,13 +683,31 @@ public class FriendsFragment extends Fragment {
 
                     }
                 });
-                mFollowersReference.child(friend.getFirebaseId()).addListenerForSingleValueEvent(new ValueEventListener() {
+
+                final DatabaseReference friendFollowersCountReference = mMetaFollowersReference.child(friend.getFirebaseId()).child(Constants.FIREBASE_DATABASE_REFERENCE_META_FOLLOWERS_COUNT);
+                friendFollowersCountReference.addListenerForSingleValueEvent(new ValueEventListener() {
                     @Override
                     public void onDataChange(DataSnapshot dataSnapshot) {
-                        for (DataSnapshot snapshot : dataSnapshot.getChildren()) {
-                            if (snapshot.getValue().equals(mUser.getUid())) {
-                                mFollowersReference.child(friend.getFirebaseId()).child(snapshot.getKey()).setValue(null);
-                            }
+                        if (dataSnapshot.getValue() != null) {
+                            int count = Integer.valueOf(dataSnapshot.getValue().toString());
+                            friendFollowersCountReference.setValue(count - 1);
+
+                            final DatabaseReference friendFollowersReference = mFollowersReference.child(friend.getFirebaseId());
+                            friendFollowersReference.addListenerForSingleValueEvent(new ValueEventListener() {
+                                @Override
+                                public void onDataChange(DataSnapshot dataSnapshot) {
+                                    for (DataSnapshot snapshot : dataSnapshot.getChildren()) {
+                                        if (snapshot.getValue().equals(mUser.getUid())) {
+                                            friendFollowersReference.child(snapshot.getKey()).setValue(null);
+                                        }
+                                    }
+                                }
+
+                                @Override
+                                public void onCancelled(DatabaseError databaseError) {
+
+                                }
+                            });
                         }
                     }
 
@@ -371,15 +718,41 @@ public class FriendsFragment extends Fragment {
                 });
             }
 
+            /*
+             * 1. Decrement by 1 the count of the number of followers of the user.
+             * 2. Remove the Firebase Id of the friend from the list of followers of the user.
+             * 3. Decrement by 1 the count of the number of friends the friend is following.
+             * 4. Remove the Firebase Id of the user from the list of the friends the friend is following.
+             */
             void removeFollower() {
                 final Friend friend = mAllFriends.get(mAllFriends.indexOf(mFollowers.get(getAdapterPosition())));
-                mFollowersReference.child(mUser.getUid()).addListenerForSingleValueEvent(new ValueEventListener() {
+
+                mUserFollowersCountReference.addListenerForSingleValueEvent(new ValueEventListener() {
                     @Override
                     public void onDataChange(DataSnapshot dataSnapshot) {
-                        for (DataSnapshot snapshot : dataSnapshot.getChildren()) {
-                            if (snapshot.getValue().equals(friend.getFirebaseId())) {
-                                mFollowersReference.child(mUser.getUid()).child(snapshot.getKey()).setValue(null);
-                            }
+                        if (dataSnapshot.getValue() != null) {
+                            int count = Integer.valueOf(dataSnapshot.getValue().toString());
+                            mUserFollowersCountReference.setValue(count - 1);
+
+                            mUserFollowersReference.addListenerForSingleValueEvent(new ValueEventListener() {
+                                @Override
+                                public void onDataChange(DataSnapshot dataSnapshot) {
+                                    for (DataSnapshot snapshot : dataSnapshot.getChildren()) {
+                                        if (snapshot.getValue() != null) {
+                                            if (snapshot.getValue().equals(friend.getFirebaseId())) {
+                                                mUserFollowersReference.child(snapshot.getKey()).setValue(null);
+                                            }
+                                        } else {
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                @Override
+                                public void onCancelled(DatabaseError databaseError) {
+
+                                }
+                            });
                         }
                     }
 
@@ -388,13 +761,35 @@ public class FriendsFragment extends Fragment {
 
                     }
                 });
-                mFollowingReference.child(friend.getFirebaseId()).addListenerForSingleValueEvent(new ValueEventListener() {
+
+                final DatabaseReference friendFollowingCountReference = mMetaFollowingReference.child(friend.getFirebaseId()).child(Constants.FIREBASE_DATABASE_REFERENCE_META_FOLLOWING_COUNT);
+                friendFollowingCountReference.addListenerForSingleValueEvent(new ValueEventListener() {
                     @Override
                     public void onDataChange(DataSnapshot dataSnapshot) {
-                        for (DataSnapshot snapshot : dataSnapshot.getChildren()) {
-                            if (snapshot.getValue().equals(mUser.getUid())) {
-                                mFollowingReference.child(friend.getFirebaseId()).child(snapshot.getKey()).setValue(null);
-                            }
+                        if (dataSnapshot.getValue() != null) {
+                            int count = Integer.valueOf(dataSnapshot.getValue().toString());
+                            friendFollowingCountReference.setValue(count - 1);
+
+                            final DatabaseReference friendFollowingReference = mFollowingReference.child(friend.getFirebaseId());
+                            friendFollowingReference.addListenerForSingleValueEvent(new ValueEventListener() {
+                                @Override
+                                public void onDataChange(DataSnapshot dataSnapshot) {
+                                    for (DataSnapshot snapshot : dataSnapshot.getChildren()) {
+                                        if (snapshot.getValue() != null) {
+                                            if (snapshot.getValue().equals(mUser.getUid())) {
+                                                friendFollowingReference.child(snapshot.getKey()).setValue(null);
+                                            }
+                                        } else {
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                @Override
+                                public void onCancelled(DatabaseError databaseError) {
+
+                                }
+                            });
                         }
                     }
 
@@ -405,37 +800,40 @@ public class FriendsFragment extends Fragment {
                 });
             }
 
+            /*
+             * 1. Increment by 1 the count of the number of requests the friend has.
+             * 2. Add the Firebase Id of the user to the list of the requests of the friend.
+             */
             void followFriend() {
-                final Friend friend = mAllFriends.get(mAllFriends.indexOf(mFriends.get(getAdapterPosition())));
-                mRequestsReference.child(friend.getFirebaseId()).addListenerForSingleValueEvent(new ValueEventListener() {
+                final Friend friend = mAllFriends.get(mAllFriends.indexOf(mUnfollowedFriends.get(getAdapterPosition())));
+
+                final DatabaseReference friendRequestsCountReference = mMetaRequestsReference.child(friend.getFirebaseId()).child(Constants.FIREBASE_DATABASE_REFERENCE_META_REQUESTS_COUNT);
+                friendRequestsCountReference.addListenerForSingleValueEvent(new ValueEventListener() {
                     @Override
                     public void onDataChange(DataSnapshot dataSnapshot) {
-                        try {
-                            mRequestsReference.child(friend.getFirebaseId()).child(String.valueOf(Integer.valueOf(dataSnapshot.getChildren().iterator().next().getKey()) + 1)).setValue(mUser.getUid());
-                        } catch (Exception e) {
-                            mRequestsReference.child(friend.getFirebaseId()).child("0").setValue(mUser.getUid());
+                        int count = 0;
+                        if (dataSnapshot.getValue() != null) {
+                            count = Integer.valueOf(dataSnapshot.getValue().toString());
                         }
-                        mButton.setText(R.string.button_text_cancel_request);
-                    }
+                        friendRequestsCountReference.setValue(count + 1);
 
-                    @Override
-                    public void onCancelled(DatabaseError databaseError) {
-
-                    }
-                });
-            }
-
-            void cancelRequest() {
-                final Friend friend = mAllFriends.get(mAllFriends.indexOf(mFriends.get(getAdapterPosition())));
-                mRequestsReference.child(friend.getFirebaseId()).addListenerForSingleValueEvent(new ValueEventListener() {
-                    @Override
-                    public void onDataChange(DataSnapshot dataSnapshot) {
-                        for (DataSnapshot snapshot : dataSnapshot.getChildren()) {
-                            if (snapshot.getValue().equals(mUser.getUid())) {
-                                mRequestsReference.child(friend.getFirebaseId()).child(snapshot.getKey()).setValue(null);
+                        final DatabaseReference friendRequestsReference = mRequestsReference.child(friend.getFirebaseId());
+                        friendRequestsReference.addListenerForSingleValueEvent(new ValueEventListener() {
+                            @Override
+                            public void onDataChange(DataSnapshot dataSnapshot) {
+                                String key = "0";
+                                if (dataSnapshot.getValue() != null) {
+                                    key = String.valueOf(Integer.valueOf(dataSnapshot.getChildren().iterator().next().getKey()) + 1);
+                                }
+                                friendRequestsReference.child(key).setValue(mUser.getUid());
+                                mButton.setText(R.string.button_text_cancel_request);
                             }
-                        }
-                        mButton.setText(R.string.button_text_follow);
+
+                            @Override
+                            public void onCancelled(DatabaseError databaseError) {
+
+                            }
+                        });
                     }
 
                     @Override
@@ -445,16 +843,124 @@ public class FriendsFragment extends Fragment {
                 });
             }
 
+            /*
+             * 1. Decrement by 1 the count of the number of requests the friend has.
+             * 2. Remove the Firebase Id of the user from the list of the requests of the friend.
+             */
+            void cancelRequest() {
+                final Friend friend = mAllFriends.get(mAllFriends.indexOf(mUnfollowedFriends.get(getAdapterPosition())));
+
+                final DatabaseReference friendRequestsCountReference = mMetaRequestsReference.child(friend.getFirebaseId()).child(Constants.FIREBASE_DATABASE_REFERENCE_META_REQUESTS_COUNT);
+                friendRequestsCountReference.addListenerForSingleValueEvent(new ValueEventListener() {
+                    @Override
+                    public void onDataChange(DataSnapshot dataSnapshot) {
+                        if (dataSnapshot.getValue() != null) {
+                            int count = Integer.valueOf(dataSnapshot.getValue().toString());
+                            friendRequestsCountReference.setValue(count - 1);
+
+                            final DatabaseReference friendRequestsReference = mRequestsReference.child(friend.getFirebaseId());
+                            friendRequestsReference.addListenerForSingleValueEvent(new ValueEventListener() {
+                                @Override
+                                public void onDataChange(DataSnapshot dataSnapshot) {
+                                    for (DataSnapshot snapshot : dataSnapshot.getChildren()) {
+                                        if (snapshot.getValue() != null) {
+                                            if (snapshot.getValue().equals(mUser.getUid())) {
+                                                friendRequestsReference.child(snapshot.getKey()).setValue(null);
+                                                mButton.setText(R.string.button_text_follow);
+                                            }
+                                        } else {
+                                            break;
+                                        }
+
+                                    }
+                                }
+
+                                @Override
+                                public void onCancelled(DatabaseError databaseError) {
+
+                                }
+                            });
+                        }
+                    }
+
+                    @Override
+                    public void onCancelled(DatabaseError databaseError) {
+
+                    }
+                });
+            }
+
+            /*
+             * 1. Decrement by 1 the count of the number of requests the user has.
+             * 2. Remove the Firebase Id of the friend from the list of requests the user has.
+             * 3. Increment by 1 the count of the number of followers the user has.
+             * 4. Add the Firebase Id of the friend to the list of followers the user has.
+             * 5. Increment by 1 the count of the number of friends the friend is following.
+             * 6. Add the Firebase Id of the user to the list of friends the friend is following.
+             */
             void acceptRequest() {
                 final Friend friend = mAllFriends.get(mAllFriends.indexOf(mRequests.get(getAdapterPosition())));
-                mRequestsReference.child(mUser.getUid()).addListenerForSingleValueEvent(new ValueEventListener() {
+
+                mUserRequestsCountReference.addListenerForSingleValueEvent(new ValueEventListener() {
                     @Override
                     public void onDataChange(DataSnapshot dataSnapshot) {
-                        for (DataSnapshot snapshot : dataSnapshot.getChildren()) {
-                            if (snapshot.getValue().equals(friend.getFirebaseId())) {
-                                mRequestsReference.child(mUser.getUid()).child(snapshot.getKey()).setValue(null);
+                        if (dataSnapshot.getValue() != null) {
+                            int count = Integer.valueOf(dataSnapshot.getValue().toString());
+                            mUserRequestsCountReference.setValue(count - 1);
+
+                            final DatabaseReference userRequestsReference = mRequestsReference.child(mUser.getUid());
+                            userRequestsReference.addListenerForSingleValueEvent(new ValueEventListener() {
+                                @Override
+                                public void onDataChange(DataSnapshot dataSnapshot) {
+                                    for (DataSnapshot snapshot : dataSnapshot.getChildren()) {
+                                        if (snapshot.getValue() != null) {
+                                            if (snapshot.getValue().equals(friend.getFirebaseId())) {
+                                                userRequestsReference.child(snapshot.getKey()).setValue(null);
+                                            }
+                                        } else {
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                @Override
+                                public void onCancelled(DatabaseError databaseError) {
+
+                                }
+                            });
+                        }
+                    }
+
+                    @Override
+                    public void onCancelled(DatabaseError databaseError) {
+
+                    }
+                });
+
+                mUserFollowersCountReference.addListenerForSingleValueEvent(new ValueEventListener() {
+                    @Override
+                    public void onDataChange(DataSnapshot dataSnapshot) {
+                        int count = 0;
+                        if (dataSnapshot.getValue() != null) {
+                            count = Integer.valueOf(dataSnapshot.getValue().toString());
+                        }
+                        mUserFollowersCountReference.setValue(count + 1);
+
+                        mUserFollowersReference.orderByKey().limitToLast(1).addListenerForSingleValueEvent(new ValueEventListener() {
+                            @Override
+                            public void onDataChange(DataSnapshot dataSnapshot) {
+                                String key = "0";
+                                if (dataSnapshot.getValue() != null) {
+                                    key = String.valueOf(Integer.valueOf(dataSnapshot.getChildren().iterator().next().getKey()) + 1);
+                                }
+                                mUserFollowersReference.child(key).setValue(friend.getFirebaseId());
                             }
-                        }
+
+                            @Override
+                            public void onCancelled(DatabaseError databaseError) {
+
+                            }
+                        });
                     }
 
                     @Override
@@ -462,26 +968,31 @@ public class FriendsFragment extends Fragment {
 
                     }
                 });
-                mFollowersReference.child(mUser.getUid()).orderByKey().limitToLast(1).addListenerForSingleValueEvent(new ValueEventListener() {
+
+                final DatabaseReference friendFollowingCountReference = mMetaFollowingReference.child(friend.getFirebaseId()).child(Constants.FIREBASE_DATABASE_REFERENCE_META_FOLLOWING_COUNT);
+                friendFollowingCountReference.addListenerForSingleValueEvent(new ValueEventListener() {
                     @Override
                     public void onDataChange(DataSnapshot dataSnapshot) {
-                        try {
-                            mFollowersReference.child(mUser.getUid()).child(String.valueOf(Integer.valueOf(dataSnapshot.getChildren().iterator().next().getKey()) + 1)).setValue(friend.getFirebaseId());
-                        } catch (Exception e) {
-                            mFollowersReference.child(mUser.getUid()).child("0").setValue(friend.getFirebaseId());
+                        int count = 0;
+                        if (dataSnapshot.getValue() != null) {
+                            count = Integer.valueOf(dataSnapshot.getValue().toString());
                         }
+                        friendFollowingCountReference.setValue(count + 1);
 
-                    }
+                        final DatabaseReference friendFollowingReference = mFollowingReference.child(friend.getFirebaseId());
+                        friendFollowingReference.addListenerForSingleValueEvent(new ValueEventListener() {
+                            @Override
+                            public void onDataChange(DataSnapshot dataSnapshot) {
+                                if (dataSnapshot.getKey() != null) {
+                                    friendFollowingReference.child(String.valueOf(dataSnapshot.getChildrenCount())).setValue(mUser.getUid());
+                                }
+                            }
 
-                    @Override
-                    public void onCancelled(DatabaseError databaseError) {
+                            @Override
+                            public void onCancelled(DatabaseError databaseError) {
 
-                    }
-                });
-                mFollowingReference.child(friend.getFirebaseId()).addListenerForSingleValueEvent(new ValueEventListener() {
-                    @Override
-                    public void onDataChange(DataSnapshot dataSnapshot) {
-                        mFollowingReference.child(friend.getFirebaseId()).child(String.valueOf(dataSnapshot.getChildrenCount())).setValue(mUser.getUid());
+                            }
+                        });
                     }
 
                     @Override

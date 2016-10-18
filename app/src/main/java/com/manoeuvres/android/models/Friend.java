@@ -11,6 +11,10 @@ public class Friend {
         //Empty constructor required for Firebase database.
     }
 
+    public Friend(String firebaseId) {
+        mFirebaseId = firebaseId;
+    }
+
     public Friend(long facebookId, String name) {
         mFacebookId = facebookId;
         mName = name;

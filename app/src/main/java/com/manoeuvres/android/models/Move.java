@@ -41,4 +41,22 @@ public class Move {
     public void setPast(String past) {
         mPast = past;
     }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (!(obj instanceof Move)) {
+            return false;
+        }
+        Move move = (Move) obj;
+        if (mName.equals(move.getName())) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    @Override
+    public int hashCode() {
+        return mName.hashCode();
+    }
 }

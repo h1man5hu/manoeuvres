@@ -1,43 +1,36 @@
 package com.manoeuvres.android.fragments;
 
 
+import android.content.SharedPreferences;
 import android.os.Bundle;
-
-//v4-Support
+import android.preference.PreferenceManager;
+import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
-
-//v7-Support
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
-
-//Views
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-
-//Widgets
 import android.widget.TextView;
-
-//Firebase authentication
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
-
-//Firebase database
+import com.google.firebase.database.ChildEventListener;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
-
-//Models
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import com.manoeuvres.android.R;
+import com.manoeuvres.android.activities.MainActivity;
 import com.manoeuvres.android.models.Log;
 import com.manoeuvres.android.models.Move;
 import com.manoeuvres.android.util.Constants;
+import com.manoeuvres.android.util.UniqueId;
 
-//Collections
+import java.lang.reflect.Type;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -45,32 +38,111 @@ import java.util.Map;
 
 public class TimelineFragment extends Fragment {
 
-    //RecyclerView.
     private RecyclerView mRecyclerView;
     private RecyclerView.Adapter mAdapter;
     private RecyclerView.LayoutManager mLayoutManager;
 
-    //Firebase database.
-    private DatabaseReference mLogsReference;
-    private DatabaseReference mMovesReference;
+    private DatabaseReference mCurrentUserLogsReference;
+    private DatabaseReference mCurrentUserMovesReference;
     private DatabaseReference mRootReference;
+    private DatabaseReference mMetaReference;
+    private DatabaseReference mCurrentUserMovesCountReference;
+
+    private ChildEventListener mLogsListener;
+    private ChildEventListener mMovesListener;
+    private ValueEventListener mMovesCountListener;
+
     private FirebaseUser mUser;
 
-    //Current user in this fragment can be the signed-in user
-    //or one of the friends.
+    /*
+     * This fragment can display the logs of either the user or a friend of the user.
+     * If the logs of a friend are to be displayed, these details are taken from the
+     * fragment's arguments. Otherwise, these are initialized to the user's details.
+     */
     private String mCurrentUserId;
+    private String mCurrentUserName;
 
-    private Map<String, Move> mMoves;   //Used while displaying the moves in a dialog box.
-    private List<com.manoeuvres.android.models.Log> mLogs;  //Used while displaying logs in the recycler view.
+    /*
+     * A log is bound to a move with its moveId. A moveId is the push id of the move.
+     * The map stores the push id of the move as the key to the move.
+     */
+    private Map<String, Move> mMoves;
+    private List<com.manoeuvres.android.models.Log> mLogs;
 
-    //Will be used to allow customization to the current log if
-    //the signed-in user is the current user.
-    private boolean isFriend;
+    private SharedPreferences mSharedPreferences;
+
+    private MainActivity mParentActivity;
+
+    private Gson mGson;
+
+    /* Logs are updated only after the moves are updated. */
+    private boolean mMovesUpdated;
 
     public TimelineFragment() {
         // Required empty public constructor
     }
 
+    public static TimelineFragment newInstance(String currentUserId, String currentUserName) {
+        TimelineFragment fragment = new TimelineFragment();
+
+        Bundle args = new Bundle();
+        args.putString(Constants.KEY_ARGUMENTS_FIREBASE_ID_USER_FRAGMENT_TIMELINE_, currentUserId);
+        args.putString(Constants.KEY_ARGUMENTS_USER_NAME_FRAGMENT_TIMELINE, currentUserName);
+
+        fragment.setArguments(args);
+        return fragment;
+    }
+
+    @Override
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        mUser = FirebaseAuth.getInstance().getCurrentUser();
+
+        mParentActivity = (MainActivity) getActivity();
+
+        Bundle bundle = getArguments();
+        if (bundle != null) {
+            mCurrentUserId = bundle.getString(Constants.KEY_ARGUMENTS_FIREBASE_ID_USER_FRAGMENT_TIMELINE_);
+            mCurrentUserName = bundle.getString(Constants.KEY_ARGUMENTS_USER_NAME_FRAGMENT_TIMELINE);
+        } else {
+            try {
+                mCurrentUserId = mUser.getUid();
+                mCurrentUserName = mUser.getDisplayName();
+            } catch (NullPointerException e) {
+                e.printStackTrace();
+            }
+        }
+
+        mSharedPreferences = PreferenceManager.getDefaultSharedPreferences(getActivity().getApplicationContext());
+
+        mGson = new Gson();
+
+        /*
+         * Caching: Load the logs and moves associated to the current user from the shared preferences file.
+         * Update the list when network can be accessed.
+         */
+        String logList = mSharedPreferences.getString(UniqueId.getLogsDataKey(mCurrentUserId), "");
+        Type type = new TypeToken<List<Log>>() {
+        }.getType();
+        mLogs = mGson.fromJson(logList, type);
+        if (mLogs == null) {
+            mLogs = new ArrayList<>();
+        }
+        String movesList = mSharedPreferences.getString(UniqueId.getMovesDataKey(mCurrentUserId), "");
+        type = new TypeToken<Map<String, Move>>() {
+        }.getType();
+        mMoves = mGson.fromJson(movesList, type);
+        if (mMoves == null) {
+            mMoves = new HashMap<>();
+        }
+
+        mRootReference = FirebaseDatabase.getInstance().getReference();
+        mCurrentUserLogsReference = mRootReference.child(Constants.FIREBASE_DATABASE_REFERENCE_LOGS).child(mCurrentUserId);
+        mCurrentUserMovesReference = mRootReference.child(Constants.FIREBASE_DATABASE_REFERENCE_MOVES).child(mCurrentUserId);
+        mMetaReference = mRootReference.child(Constants.FIREBASE_DATABASE_REFERENCE_META);
+        mCurrentUserMovesCountReference = mMetaReference.child(Constants.FIREBASE_DATABASE_REFERENCE_META_MOVES).child(mCurrentUserId).child(Constants.FIREBASE_DATABASE_REFERENCE_META_MOVES_COUNT);
+    }
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
@@ -80,7 +152,6 @@ public class TimelineFragment extends Fragment {
 
         mRecyclerView = (RecyclerView) rootView.findViewById(R.id.recycler_view_timeline);
 
-        //To improve performance if changes in content do not change the layout size of the RecyclerView.
         mRecyclerView.setHasFixedSize(true);
 
         mLayoutManager = new LinearLayoutManager(getContext());
@@ -89,65 +160,159 @@ public class TimelineFragment extends Fragment {
         mAdapter = new TimelineAdapter();
         mRecyclerView.setAdapter(mAdapter);
 
-        mMoves = new HashMap<>();
-        mLogs = new ArrayList<>();
-
-        //Get the current user from the fragment's arguments.
-        mUser = FirebaseAuth.getInstance().getCurrentUser();
-        if (getArguments() != null) {
-            mCurrentUserId = getArguments().getString(Constants.KEY_ARGUMENTS_FIREBASE_ID_USER_FRAGMENT_TIMELINE_);
-            isFriend = true;
-        } else {
-            try {
-                mCurrentUserId = mUser.getUid();
-                isFriend = false;
-            } catch (NullPointerException e) {
-                e.printStackTrace();
-            }
-        }
-
-        //Get the database references for the current user.
-        mRootReference = FirebaseDatabase.getInstance().getReference();
-        mLogsReference = mRootReference.getRef().child(Constants.FIREBASE_DATABASE_REFERENCE_LOGS).child(mCurrentUserId);
-        mMovesReference = mRootReference.getRef().child(Constants.FIREBASE_DATABASE_REFERENCE_MOVES).child(mCurrentUserId);
-
-        //Get all the logs.
-        mLogsReference.addValueEventListener(new ValueEventListener() {
-            @Override
-            public void onDataChange(DataSnapshot dataSnapshot) {
-                mLogs.clear();
-                for (DataSnapshot log : dataSnapshot.getChildren()) {
-                    mLogs.add(log.getValue(com.manoeuvres.android.models.Log.class));
-                }
-                Collections.reverse(mLogs);
-                mAdapter.notifyDataSetChanged();
-            }
-
-            @Override
-            public void onCancelled(DatabaseError databaseError) {
-
-            }
-        });
-
-        //Get all the moves.
-        mMovesReference.addValueEventListener(new ValueEventListener() {
-            @Override
-            public void onDataChange(DataSnapshot dataSnapshot) {
-                mMoves.clear();
-                for (DataSnapshot move : dataSnapshot.getChildren()) {
-                    mMoves.put(move.getKey(), move.getValue(Move.class));
-                }
-
-                mAdapter.notifyDataSetChanged();
-            }
-
-            @Override
-            public void onCancelled(DatabaseError databaseError) {
-
-            }
-        });
-
         return rootView;
+    }
+
+    @Override
+    public void onStart() {
+        super.onStart();
+
+        mParentActivity.setTitle(mCurrentUserName);
+
+        /*
+         * This method calls the updateLogs method after all the moves are updated. Calling it before can
+         * lead to empty view holders in the recycler view if some new moves were added by the friend
+         * when the fragment wasn't running.
+         */
+        updateMoves();
+
+        /* If this is not the first time onStart is getting called, the moves are already updated, update the logs. */
+        if (mMovesUpdated) {
+            updateLogs();
+        }
+    }
+
+    private void updateLogs() {
+        if (mLogsListener == null) {
+            mLogsListener = mCurrentUserLogsReference.limitToLast(Constants.LIMIT_LOG_COUNT).addChildEventListener(new ChildEventListener() {
+                @Override
+                public void onChildAdded(DataSnapshot dataSnapshot, String s) {
+                    Log newLog = dataSnapshot.getValue(Log.class);
+                    int index = mLogs.indexOf(newLog);
+                    if (index == -1) {
+                        if (mLogs.size() >= Constants.LIMIT_LOG_COUNT) {
+                            mLogs.remove(mLogs.size() - 1);
+                            mAdapter.notifyItemRemoved(mAdapter.getItemCount() - 1);
+                        }
+                        mLogs.add(0, newLog);
+                        mAdapter.notifyItemInserted(0);
+                        mRecyclerView.scrollToPosition(0);
+                        mSharedPreferences.edit().putLong(UniqueId.getLatestLogKey(mCurrentUserId), newLog.getStartTime()).apply();
+                    } else {    // If due to any bug, a previous log wasn't updated, update it now.
+                        Log oldLog = mLogs.get(index);
+                        if (oldLog.getEndTime() == 0 && newLog.getEndTime() != 0) {
+                            oldLog.setEndTime(newLog.getEndTime());
+                            mAdapter.notifyItemChanged(index);
+                        }
+                    }
+                }
+
+                @Override
+                public void onChildChanged(DataSnapshot dataSnapshot, String s) {
+                    Log updatedLog = dataSnapshot.getValue(Log.class);
+                    Log oldLog = mLogs.get(0);  //Changes are only allowed to the latest log, if it's in progress.
+                    if ((oldLog.getMoveId().equals(updatedLog.getMoveId())) && (oldLog.getStartTime() == updatedLog.getStartTime())) {
+                        oldLog.setEndTime(updatedLog.getEndTime());
+                        mAdapter.notifyItemChanged(0);
+                    }
+                }
+
+                @Override
+                public void onChildRemoved(DataSnapshot dataSnapshot) {
+
+                }
+
+                @Override
+                public void onChildMoved(DataSnapshot dataSnapshot, String s) {
+
+                }
+
+                @Override
+                public void onCancelled(DatabaseError databaseError) {
+
+                }
+            });
+        }
+    }
+
+    private void updateMoves() {
+        if (mMovesCountListener == null) {
+            mMovesCountListener = mCurrentUserMovesCountReference.addValueEventListener(new ValueEventListener() {
+                @Override
+                public void onDataChange(DataSnapshot dataSnapshot) {
+                    final int count = Integer.valueOf(dataSnapshot.getValue().toString());
+                    if (mMovesListener == null) {
+                        mMovesListener = mCurrentUserMovesReference.addChildEventListener(new ChildEventListener() {
+                            @Override
+                            public void onChildAdded(DataSnapshot dataSnapshot, String s) {
+                                String key = dataSnapshot.getKey();
+                                Move move = dataSnapshot.getValue(Move.class);
+                                if (!mMoves.containsKey(key)) {
+                                    mMoves.put(key, move);
+                                }
+                                if (mMoves.size() == count) {
+                                    if (!mMovesUpdated) {
+                                        mMovesUpdated = true;
+                                        updateLogs();
+                                    }
+                                }
+                            }
+
+                            @Override
+                            public void onChildChanged(DataSnapshot dataSnapshot, String s) {
+                                String key = dataSnapshot.getKey();
+                                Move move = dataSnapshot.getValue(Move.class);
+                                if (mMoves.containsKey(key)) {
+                                    mMoves.put(key, move);
+                                }
+                            }
+
+                            @Override
+                            public void onChildRemoved(DataSnapshot dataSnapshot) {
+                                String key = dataSnapshot.getKey();
+                                if (mMoves.containsKey(key)) {
+                                    mMoves.remove(key);
+                                }
+                            }
+
+                            @Override
+                            public void onChildMoved(DataSnapshot dataSnapshot, String s) {
+
+                            }
+
+                            @Override
+                            public void onCancelled(DatabaseError databaseError) {
+
+                            }
+                        });
+                    }
+                }
+
+                @Override
+                public void onCancelled(DatabaseError databaseError) {
+
+                }
+            });
+        }
+    }
+
+    @Override
+    public void onStop() {
+        super.onStop();
+
+        /* Update the cache of logs and moves for this user. */
+        SharedPreferences.Editor editor = mSharedPreferences.edit();
+        editor.putString(UniqueId.getLogsDataKey(mCurrentUserId), mGson.toJson(mLogs));
+        editor.putString(UniqueId.getMovesDataKey(mCurrentUserId), mGson.toJson(mMoves));
+        editor.apply();
+
+        if (mCurrentUserLogsReference != null && mLogsListener != null)
+            mCurrentUserLogsReference.removeEventListener(mLogsListener);
+        if (mCurrentUserMovesReference != null && mMovesListener != null)
+            mCurrentUserMovesReference.removeEventListener(mMovesListener);
+        if (mCurrentUserMovesCountReference != null && mMovesCountListener != null) {
+            mCurrentUserMovesCountReference.removeEventListener(mMovesCountListener);
+        }
     }
 
     public class TimelineAdapter extends RecyclerView.Adapter<TimelineAdapter.ViewHolder> {
@@ -160,22 +325,17 @@ public class TimelineFragment extends Fragment {
 
         @Override
         public void onBindViewHolder(TimelineAdapter.ViewHolder holder, int position) {
-            //Get the log to be displayed.
             com.manoeuvres.android.models.Log log = mLogs.get(position);
-
-            //Get the move details from the move id stored in the log.
             Move move = mMoves.get(log.getMoveId());
-
-            //Error handling.
+            /*
+             * The text to be displayed depends on the status of the log. If it is in progress,
+             * display the text in present tense, otherwise display it in past tense.
+             */
             if (move != null) {
-
-                //If the move is done, display it in past tense.
                 if (log.getEndTime() != 0) {
                     holder.mMoveTitle.setText(move.getPast());
                     holder.mMoveSubtitle.setText(String.format(getResources().getString(R.string.log_sub_title_text_past), log.getStartTime(), log.getEndTime()));
                 }
-
-                //If the move is in progress, display it in present tense.
                 else {
                     holder.mMoveTitle.setText(move.getPresent());
                     holder.mMoveSubtitle.setText(String.format(getResources().getString(R.string.log_sub_title_text_present), log.getStartTime()));

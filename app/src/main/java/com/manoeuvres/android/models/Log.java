@@ -40,4 +40,22 @@ public class Log {
     public void setEndTime(long endTime) {
         mEndTime = endTime;
     }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (!(obj instanceof Log)) {
+            return false;
+        }
+        Log log = (Log) obj;
+        if (mMoveId.equals(log.getMoveId()) && mStartTime == log.getStartTime()) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    @Override
+    public int hashCode() {
+        return (mMoveId + String.valueOf(mStartTime)).hashCode();
+    }
 }
