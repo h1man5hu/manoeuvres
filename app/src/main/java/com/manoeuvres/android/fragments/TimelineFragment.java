@@ -2,10 +2,13 @@ package com.manoeuvres.android.fragments;
 
 
 import android.content.SharedPreferences;
+import android.content.res.Resources;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.support.annotation.Nullable;
+import android.support.design.widget.FloatingActionButton;
 import android.support.v4.app.Fragment;
+import android.support.v4.widget.ContentLoadingProgressBar;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
@@ -47,10 +50,12 @@ public class TimelineFragment extends Fragment {
     private DatabaseReference mRootReference;
     private DatabaseReference mMetaReference;
     private DatabaseReference mCurrentUserMovesCountReference;
+    private DatabaseReference mCurrentUserLogsCountReference;
 
     private ChildEventListener mLogsListener;
     private ChildEventListener mMovesListener;
     private ValueEventListener mMovesCountListener;
+    private ValueEventListener mLogsCountListener;
 
     private FirebaseUser mUser;
 
@@ -77,6 +82,13 @@ public class TimelineFragment extends Fragment {
 
     /* Logs are updated only after the moves are updated. */
     private boolean mMovesUpdated;
+
+    private ContentLoadingProgressBar mProgressBar;
+    private TextView mLoadingTextView;
+
+    private FloatingActionButton mFab;
+
+    private boolean mIsFriend;
 
     public TimelineFragment() {
         // Required empty public constructor
@@ -105,6 +117,9 @@ public class TimelineFragment extends Fragment {
         if (bundle != null) {
             mCurrentUserId = bundle.getString(Constants.KEY_ARGUMENTS_FIREBASE_ID_USER_FRAGMENT_TIMELINE_);
             mCurrentUserName = bundle.getString(Constants.KEY_ARGUMENTS_USER_NAME_FRAGMENT_TIMELINE);
+            if (!mCurrentUserId.equals(mUser.getUid())) {
+                mIsFriend = true;
+            }
         } else {
             try {
                 mCurrentUserId = mUser.getUid();
@@ -142,6 +157,7 @@ public class TimelineFragment extends Fragment {
         mCurrentUserMovesReference = mRootReference.child(Constants.FIREBASE_DATABASE_REFERENCE_MOVES).child(mCurrentUserId);
         mMetaReference = mRootReference.child(Constants.FIREBASE_DATABASE_REFERENCE_META);
         mCurrentUserMovesCountReference = mMetaReference.child(Constants.FIREBASE_DATABASE_REFERENCE_META_MOVES).child(mCurrentUserId).child(Constants.FIREBASE_DATABASE_REFERENCE_META_MOVES_COUNT);
+        mCurrentUserLogsCountReference = mMetaReference.child(Constants.FIREBASE_DATABASE_REFERENCE_META_LOGS).child(mCurrentUserId).child(Constants.FIREBASE_DATABASE_REFERENCE_META_LOGS_COUNT);
     }
 
     @Override
@@ -159,6 +175,33 @@ public class TimelineFragment extends Fragment {
 
         mAdapter = new TimelineAdapter();
         mRecyclerView.setAdapter(mAdapter);
+
+        mFab = (FloatingActionButton) mParentActivity.findViewById(R.id.fab);
+
+        mProgressBar = (ContentLoadingProgressBar) rootView.findViewById(R.id.progress_bar_timeline);
+        mLoadingTextView = (TextView) rootView.findViewById(R.id.textView_loading_logs);
+
+        Resources resources = getResources();
+        String formatString = resources.getString(R.string.textview_loading_logs);
+        String nameArgument;
+        if (mIsFriend) {
+            nameArgument = mCurrentUserName + "'s";
+        } else {
+            nameArgument = resources.getString(R.string.text_loading_logs_your);
+        }
+        mLoadingTextView.setText(String.format(formatString, nameArgument));
+
+        /* If there was no cache, display progress until the data is loaded from the network. */
+        if (mMoves.size() == 0 || mLogs.size() == 0) {
+            mFab.hide();
+            mProgressBar.show();
+            mRecyclerView.setVisibility(View.INVISIBLE);
+            mLoadingTextView.setVisibility(View.VISIBLE);
+        } else {
+            mProgressBar.hide();
+            mRecyclerView.setVisibility(View.VISIBLE);
+            mLoadingTextView.setVisibility(View.INVISIBLE);
+        }
 
         return rootView;
     }
@@ -183,48 +226,84 @@ public class TimelineFragment extends Fragment {
     }
 
     private void updateLogs() {
-        if (mLogsListener == null) {
-            mLogsListener = mCurrentUserLogsReference.limitToLast(Constants.LIMIT_LOG_COUNT).addChildEventListener(new ChildEventListener() {
+        if (mLogsCountListener == null) {
+            mLogsCountListener = mCurrentUserLogsCountReference.addValueEventListener(new ValueEventListener() {
                 @Override
-                public void onChildAdded(DataSnapshot dataSnapshot, String s) {
-                    Log newLog = dataSnapshot.getValue(Log.class);
-                    int index = mLogs.indexOf(newLog);
-                    if (index == -1) {
-                        if (mLogs.size() >= Constants.LIMIT_LOG_COUNT) {
-                            mLogs.remove(mLogs.size() - 1);
-                            mAdapter.notifyItemRemoved(mAdapter.getItemCount() - 1);
+                public void onDataChange(DataSnapshot dataSnapshot) {
+                    final int count = Integer.valueOf(dataSnapshot.getValue().toString());
+
+                    if (count == 0) {
+                        mProgressBar.hide();
+                        mRecyclerView.setVisibility(View.VISIBLE);
+                        mLoadingTextView.setVisibility(View.INVISIBLE);
+                        if (!mIsFriend) {
+                            mFab.show();
                         }
-                        mLogs.add(0, newLog);
-                        mAdapter.notifyItemInserted(0);
-                        mRecyclerView.scrollToPosition(0);
-                        mSharedPreferences.edit().putLong(UniqueId.getLatestLogKey(mCurrentUserId), newLog.getStartTime()).apply();
-                    } else {    // If due to any bug, a previous log wasn't updated, update it now.
-                        Log oldLog = mLogs.get(index);
-                        if (oldLog.getEndTime() == 0 && newLog.getEndTime() != 0) {
-                            oldLog.setEndTime(newLog.getEndTime());
-                            mAdapter.notifyItemChanged(index);
+                    } else {
+                        if (mLogsListener == null) {
+                            mLogsListener = mCurrentUserLogsReference.limitToLast(Constants.LIMIT_LOG_COUNT).addChildEventListener(new ChildEventListener() {
+                                @Override
+                                public void onChildAdded(DataSnapshot dataSnapshot, String s) {
+                                    Log newLog = dataSnapshot.getValue(Log.class);
+                                    int index = mLogs.indexOf(newLog);
+                                    if (index == -1) {
+                                        if (mLogs.size() >= Constants.LIMIT_LOG_COUNT) {
+                                            mLogs.remove(mLogs.size() - 1);
+                                            mAdapter.notifyItemRemoved(mAdapter.getItemCount() - 1);
+                                        }
+                                        mLogs.add(0, newLog);
+                                        mAdapter.notifyItemInserted(0);
+                                        mRecyclerView.scrollToPosition(0);
+                                        mSharedPreferences.edit().putLong(UniqueId.getLatestLogKey(mCurrentUserId), newLog.getStartTime()).apply();
+                                    } else {    // If due to any bug, a previous log wasn't updated, update it now.
+                                        Log oldLog = mLogs.get(index);
+                                        if (oldLog.getEndTime() == 0 && newLog.getEndTime() != 0) {
+                                            oldLog.setEndTime(newLog.getEndTime());
+                                            mAdapter.notifyItemChanged(index);
+                                        }
+                                    }
+
+                                    int limit = Constants.LIMIT_LOG_COUNT;
+                                    if (count < limit) {
+                                        limit = count;
+                                    }
+                                    if (mLogs.size() == limit) {
+                                        mProgressBar.hide();
+                                        mRecyclerView.setVisibility(View.VISIBLE);
+                                        mLoadingTextView.setVisibility(View.VISIBLE);
+                                        if (!mIsFriend) {
+                                            mFab.show();
+                                        }
+                                    }
+                                }
+
+                                @Override
+                                public void onChildChanged(DataSnapshot dataSnapshot, String s) {
+                                    Log updatedLog = dataSnapshot.getValue(Log.class);
+                                    Log oldLog = mLogs.get(0);  //Changes are only allowed to the latest log, if it's in progress.
+                                    if ((oldLog.getMoveId().equals(updatedLog.getMoveId())) && (oldLog.getStartTime() == updatedLog.getStartTime())) {
+                                        oldLog.setEndTime(updatedLog.getEndTime());
+                                        mAdapter.notifyItemChanged(0);
+                                    }
+                                }
+
+                                @Override
+                                public void onChildRemoved(DataSnapshot dataSnapshot) {
+
+                                }
+
+                                @Override
+                                public void onChildMoved(DataSnapshot dataSnapshot, String s) {
+
+                                }
+
+                                @Override
+                                public void onCancelled(DatabaseError databaseError) {
+
+                                }
+                            });
                         }
                     }
-                }
-
-                @Override
-                public void onChildChanged(DataSnapshot dataSnapshot, String s) {
-                    Log updatedLog = dataSnapshot.getValue(Log.class);
-                    Log oldLog = mLogs.get(0);  //Changes are only allowed to the latest log, if it's in progress.
-                    if ((oldLog.getMoveId().equals(updatedLog.getMoveId())) && (oldLog.getStartTime() == updatedLog.getStartTime())) {
-                        oldLog.setEndTime(updatedLog.getEndTime());
-                        mAdapter.notifyItemChanged(0);
-                    }
-                }
-
-                @Override
-                public void onChildRemoved(DataSnapshot dataSnapshot) {
-
-                }
-
-                @Override
-                public void onChildMoved(DataSnapshot dataSnapshot, String s) {
-
                 }
 
                 @Override
@@ -241,6 +320,7 @@ public class TimelineFragment extends Fragment {
                 @Override
                 public void onDataChange(DataSnapshot dataSnapshot) {
                     final int count = Integer.valueOf(dataSnapshot.getValue().toString());
+
                     if (mMovesListener == null) {
                         mMovesListener = mCurrentUserMovesReference.addChildEventListener(new ChildEventListener() {
                             @Override

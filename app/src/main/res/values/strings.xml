@@ -17,7 +17,7 @@
     <string name="title_activity_main_find_friends">Find Friends</string>
     <string name="title_activity_main_requests">Requests</string>
 
-    <string name="title_alert_dialog_select_move">Select a move to broadcast</string>
+    <string name="title_alert_dialog_select_move">Select a move to share</string>
     <string name="button_text_alert_dialog_negative">Cancel</string>
 
     <string name="move_drive_name">Drive</string>
@@ -49,5 +49,14 @@
 
     <string name="log_sub_title_text_present">Since %1$d</string>
     <string name="log_sub_title_text_past">From %1$d to %2$d</string>
+
+    <string name="textview_loading_logs">Getting %1$s moves</string>
+    <string name="textview_loading_friends">Getting your %1$s</string>
+    <string name="textview_loading_following">Getting the friends you\'re following</string>
+
+    <string name="text_loading_friends_followers">followers</string>
+    <string name="text_loading_friends_find_friends">friends</string>
+    <string name="text_loading_friends_requests">requests</string>
+    <string name="text_loading_logs_your">your</string>
 
 </resources>

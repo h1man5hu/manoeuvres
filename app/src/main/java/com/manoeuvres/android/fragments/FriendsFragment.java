@@ -3,11 +3,13 @@ package com.manoeuvres.android.fragments;
 
 import android.app.Activity;
 import android.content.SharedPreferences;
+import android.content.res.Resources;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.support.annotation.Nullable;
 import android.support.design.widget.NavigationView;
 import android.support.v4.app.Fragment;
+import android.support.v4.widget.ContentLoadingProgressBar;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
@@ -103,6 +105,13 @@ public class FriendsFragment extends Fragment {
 
     private Gson mGson;
 
+    private ContentLoadingProgressBar mProgressBar;
+    private TextView mLoadingTextView;
+
+    private boolean mFollowersLoaded;
+    private boolean mFollowingLoaded;
+    private boolean mRequestsLoaded;
+
     public FriendsFragment() {
         // Required empty public constructor
     }
@@ -175,7 +184,45 @@ public class FriendsFragment extends Fragment {
         mRecyclerView.setAdapter(mAdapter);
 
         mParentActivity = getActivity();
+
         mNavigationView = (NavigationView) mParentActivity.findViewById(R.id.nav_view);
+        mNavigationMenu = mNavigationView.getMenu();
+
+        mProgressBar = (ContentLoadingProgressBar) rootView.findViewById(R.id.progress_bar_friends);
+
+        mLoadingTextView = (TextView) rootView.findViewById(R.id.textView_loading_friends);
+
+        Resources resources = getResources();
+
+        if (mFragmentBehavior == Constants.FRAGMENT_FIND_FRIENDS) {
+            if (!mFollowingLoaded) {
+                mLoadingTextView.setText(String.format(resources.getString(R.string.textview_loading_friends), resources.getString(R.string.text_loading_friends_find_friends)));
+                mProgressBar.show();
+                mRecyclerView.setVisibility(View.INVISIBLE);
+                mLoadingTextView.setVisibility(View.VISIBLE);
+            }
+        } else if (mFragmentBehavior == Constants.FRAGMENT_FOLLOWERS) {
+            if (!mFollowersLoaded) {
+                mLoadingTextView.setText(String.format(resources.getString(R.string.textview_loading_friends), resources.getString(R.string.text_loading_friends_followers)));
+                mProgressBar.show();
+                mRecyclerView.setVisibility(View.INVISIBLE);
+                mLoadingTextView.setVisibility(View.VISIBLE);
+            }
+        } else if (mFragmentBehavior == Constants.FRAGMENT_FOLLOWING) {
+            if (!mFollowingLoaded) {
+                mLoadingTextView.setText(resources.getString(R.string.textview_loading_following));
+                mProgressBar.show();
+                mRecyclerView.setVisibility(View.INVISIBLE);
+                mLoadingTextView.setVisibility(View.VISIBLE);
+            }
+        } else if (mFragmentBehavior == Constants.FRAGMENT_REQUESTS) {
+            if (!mRequestsLoaded) {
+                mLoadingTextView.setText(String.format(resources.getString(R.string.textview_loading_friends), resources.getString(R.string.text_loading_friends_requests)));
+                mProgressBar.show();
+                mRecyclerView.setVisibility(View.INVISIBLE);
+                mLoadingTextView.setVisibility(View.VISIBLE);
+            }
+        }
 
         return rootView;
     }
@@ -184,28 +231,22 @@ public class FriendsFragment extends Fragment {
     public void onStart() {
         super.onStart();
 
-        mNavigationMenu = mNavigationView.getMenu();
         if (mFragmentBehavior == Constants.FRAGMENT_FIND_FRIENDS) {
+            getFollowing();     // Friends which the user is already following shouldn't be displayed.
             mParentActivity.setTitle(R.string.title_activity_main_find_friends);
             mNavigationMenu.findItem(R.id.nav_find_friends).setChecked(true);
         } else if (mFragmentBehavior == Constants.FRAGMENT_FOLLOWERS) {
+            getFollowers();
             mParentActivity.setTitle(R.string.title_activity_main_followers);
             mNavigationMenu.findItem(R.id.nav_followers).setChecked(true);
         } else if (mFragmentBehavior == Constants.FRAGMENT_FOLLOWING) {
+            getFollowing();
             mParentActivity.setTitle(R.string.title_activity_main_following);
             mNavigationMenu.findItem(R.id.nav_following).setChecked(true);
         } else if (mFragmentBehavior == Constants.FRAGMENT_REQUESTS) {
+            getRequests();
             mParentActivity.setTitle(R.string.title_activity_main_requests);
             mNavigationMenu.findItem(R.id.nav_requests).setChecked(true);
-        }
-
-        if (mFragmentBehavior == Constants.FRAGMENT_FOLLOWERS) {
-            getFollowers();
-        } else if (mFragmentBehavior == Constants.FRAGMENT_FOLLOWING || mFragmentBehavior == Constants.FRAGMENT_FIND_FRIENDS) {
-            /* In case of finding friends, friends which the user is already following shouldn't be displayed. */
-            getFollowing();
-        } else if (mFragmentBehavior == Constants.FRAGMENT_REQUESTS) {
-            getRequests();
         }
     }
 
@@ -299,6 +340,15 @@ public class FriendsFragment extends Fragment {
                         mFollowersCount = Integer.valueOf(dataSnapshot.getValue().toString());
                     }
 
+                    if (mFollowingCount == 0) {
+                        if (!mFollowersLoaded) {
+                            mFollowersLoaded = true;
+                            mProgressBar.hide();
+                            mRecyclerView.setVisibility(View.VISIBLE);
+                            mLoadingTextView.setVisibility(View.INVISIBLE);
+                        }
+                    }
+
                     if (mFollowersCount > 0) {
                         if (mUserFollowersListener == null) {
                             mUserFollowersListener = mUserFollowersReference.addChildEventListener(new ChildEventListener() {
@@ -309,6 +359,15 @@ public class FriendsFragment extends Fragment {
                                         mFollowers.add(friend);
                                         mAdapter.notifyItemInserted(mFollowers.size() - 1);
                                         mSharedPreferences.edit().putInt(Constants.KEY_SHARED_PREF_COUNT_FOLLOWERS, mFollowers.size()).apply();
+                                    }
+
+                                    if (mFollowers.size() == mFollowingCount) {
+                                        if (!mFollowersLoaded) {
+                                            mFollowersLoaded = true;
+                                            mProgressBar.hide();
+                                            mRecyclerView.setVisibility(View.VISIBLE);
+                                            mLoadingTextView.setVisibility(View.INVISIBLE);
+                                        }
                                     }
                                 }
 
@@ -376,6 +435,13 @@ public class FriendsFragment extends Fragment {
                             mUnfollowedFriends.removeAll(mFollowing);
                             mAdapter.notifyDataSetChanged();
                         }
+
+                        if (!mFollowingLoaded) {
+                            mFollowingLoaded = true;
+                            mProgressBar.hide();
+                            mRecyclerView.setVisibility(View.VISIBLE);
+                            mLoadingTextView.setVisibility(View.INVISIBLE);
+                        }
                     }
 
                     if (mFollowingCount > 0) {
@@ -397,6 +463,13 @@ public class FriendsFragment extends Fragment {
                                             mUnfollowedFriends = new ArrayList<>(mAllFriends);
                                             mUnfollowedFriends.removeAll(mFollowing);
                                             mAdapter.notifyDataSetChanged();
+                                        }
+
+                                        if (!mFollowingLoaded) {
+                                            mFollowingLoaded = true;
+                                            mProgressBar.hide();
+                                            mRecyclerView.setVisibility(View.VISIBLE);
+                                            mLoadingTextView.setVisibility(View.INVISIBLE);
                                         }
                                     }
                                 }
@@ -468,6 +541,15 @@ public class FriendsFragment extends Fragment {
                         mRequestsCount = Integer.valueOf(dataSnapshot.getValue().toString());
                     }
 
+                    if (mRequestsCount == 0) {
+                        if (!mRequestsLoaded) {
+                            mRequestsLoaded = true;
+                            mProgressBar.hide();
+                            mRecyclerView.setVisibility(View.VISIBLE);
+                            mLoadingTextView.setVisibility(View.INVISIBLE);
+                        }
+                    }
+
                     if (mRequestsCount > 0) {
                         if (mUserRequestsListener == null) {
                             mUserRequestsListener = mUserRequestsReference.addChildEventListener(new ChildEventListener() {
@@ -478,6 +560,15 @@ public class FriendsFragment extends Fragment {
                                         mRequests.add(friend);
                                         mAdapter.notifyItemInserted(mRequests.size() - 1);
                                         mSharedPreferences.edit().putInt(Constants.KEY_SHARED_PREF_COUNT_REQUESTS, mRequests.size()).apply();
+                                    }
+
+                                    if (mRequests.size() == mRequestsCount) {
+                                        if (!mRequestsLoaded) {
+                                            mRequestsLoaded = true;
+                                            mProgressBar.hide();
+                                            mRecyclerView.setVisibility(View.VISIBLE);
+                                            mLoadingTextView.setVisibility(View.INVISIBLE);
+                                        }
                                     }
                                 }
 

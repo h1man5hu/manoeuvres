@@ -385,17 +385,37 @@ public class MainActivity extends AppCompatActivity
         if (id == R.id.nav_timeline) {
             fragmentClass = TimelineFragment.class;
         } else if (id == R.id.nav_followers) {
-            fragmentClass = FriendsFragment.class;
-            friendsFragmentBehavior = Constants.FRAGMENT_FOLLOWERS;
+            if (!mNavigationMenu.findItem(R.id.nav_followers).isChecked()) {
+                fragmentClass = FriendsFragment.class;
+                friendsFragmentBehavior = Constants.FRAGMENT_FOLLOWERS;
+            } else {
+                mDrawerLayout.closeDrawer(GravityCompat.START);
+                return true;
+            }
         } else if (id == R.id.nav_following) {
-            fragmentClass = FriendsFragment.class;
-            friendsFragmentBehavior = Constants.FRAGMENT_FOLLOWING;
+            if (!mNavigationMenu.findItem(R.id.nav_following).isChecked()) {
+                fragmentClass = FriendsFragment.class;
+                friendsFragmentBehavior = Constants.FRAGMENT_FOLLOWING;
+            } else {
+                mDrawerLayout.closeDrawer(GravityCompat.START);
+                return true;
+            }
         } else if (id == R.id.nav_find_friends) {
-            fragmentClass = FriendsFragment.class;
-            friendsFragmentBehavior = Constants.FRAGMENT_FIND_FRIENDS;
+            if (!mNavigationMenu.findItem(R.id.nav_find_friends).isChecked()) {
+                fragmentClass = FriendsFragment.class;
+                friendsFragmentBehavior = Constants.FRAGMENT_FIND_FRIENDS;
+            } else {
+                mDrawerLayout.closeDrawer(GravityCompat.START);
+                return true;
+            }
         } else if (id == R.id.nav_requests) {
-            fragmentClass = FriendsFragment.class;
-            friendsFragmentBehavior = Constants.FRAGMENT_REQUESTS;
+            if (!mNavigationMenu.findItem(R.id.nav_requests).isChecked()) {
+                fragmentClass = FriendsFragment.class;
+                friendsFragmentBehavior = Constants.FRAGMENT_REQUESTS;
+            } else {
+                mDrawerLayout.closeDrawer(GravityCompat.START);
+                return true;
+            }
         } else if (id == R.id.nav_settings) {
             return false;
         } else if (id == R.id.nav_log_out) {
@@ -411,8 +431,8 @@ public class MainActivity extends AppCompatActivity
             startFriendsFragment(friendsFragmentBehavior);
         }
 
-        DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
-        drawer.closeDrawer(GravityCompat.START);
+
+        mDrawerLayout.closeDrawer(GravityCompat.START);
         return true;
     }
 
