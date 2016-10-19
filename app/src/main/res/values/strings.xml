@@ -59,4 +59,6 @@
     <string name="text_loading_friends_requests">requests</string>
     <string name="text_loading_logs_your">your</string>
 
+    <string name="snackbar_no_internet">No internet connection</string>
+
 </resources>

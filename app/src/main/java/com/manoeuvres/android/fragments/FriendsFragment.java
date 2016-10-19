@@ -2,12 +2,19 @@ package com.manoeuvres.android.fragments;
 
 
 import android.app.Activity;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.res.Resources;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.support.annotation.Nullable;
 import android.support.design.widget.NavigationView;
+import android.support.design.widget.Snackbar;
 import android.support.v4.app.Fragment;
 import android.support.v4.widget.ContentLoadingProgressBar;
 import android.support.v7.widget.LinearLayoutManager;
@@ -41,6 +48,9 @@ import org.json.JSONObject;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.List;
+
+import static android.content.Context.CONNECTIVITY_SERVICE;
+import static android.net.ConnectivityManager.CONNECTIVITY_ACTION;
 
 
 public class FriendsFragment extends Fragment {
@@ -112,6 +122,12 @@ public class FriendsFragment extends Fragment {
     private boolean mFollowingLoaded;
     private boolean mRequestsLoaded;
 
+    private ConnectivityManager mConnectivityManager;
+    private NetworkInfo mNetworkInfo;
+    private boolean mIsConnected;
+    private BroadcastReceiver mNetworkReceiver;
+    private Snackbar mNoConnectionSnackbar;
+
     public FriendsFragment() {
         // Required empty public constructor
     }
@@ -129,6 +145,8 @@ public class FriendsFragment extends Fragment {
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        mParentActivity = getActivity();
 
         mFragmentBehavior = getArguments().getInt(Constants.KEY_ARGUMENTS_FRAGMENT_BEHAVIOR_FRIENDS);
 
@@ -165,7 +183,7 @@ public class FriendsFragment extends Fragment {
             mAllFriends = new ArrayList<>();
         }
 
-        updateAllFriends();
+        mConnectivityManager = (ConnectivityManager) mParentActivity.getSystemService(CONNECTIVITY_SERVICE);
     }
 
     @Override
@@ -183,8 +201,6 @@ public class FriendsFragment extends Fragment {
         mAdapter = new FriendsAdapter();
         mRecyclerView.setAdapter(mAdapter);
 
-        mParentActivity = getActivity();
-
         mNavigationView = (NavigationView) mParentActivity.findViewById(R.id.nav_view);
         mNavigationMenu = mNavigationView.getMenu();
 
@@ -195,33 +211,13 @@ public class FriendsFragment extends Fragment {
         Resources resources = getResources();
 
         if (mFragmentBehavior == Constants.FRAGMENT_FIND_FRIENDS) {
-            if (!mFollowingLoaded) {
-                mLoadingTextView.setText(String.format(resources.getString(R.string.textview_loading_friends), resources.getString(R.string.text_loading_friends_find_friends)));
-                mProgressBar.show();
-                mRecyclerView.setVisibility(View.INVISIBLE);
-                mLoadingTextView.setVisibility(View.VISIBLE);
-            }
+            mLoadingTextView.setText(String.format(resources.getString(R.string.textview_loading_friends), resources.getString(R.string.text_loading_friends_find_friends)));
         } else if (mFragmentBehavior == Constants.FRAGMENT_FOLLOWERS) {
-            if (!mFollowersLoaded) {
-                mLoadingTextView.setText(String.format(resources.getString(R.string.textview_loading_friends), resources.getString(R.string.text_loading_friends_followers)));
-                mProgressBar.show();
-                mRecyclerView.setVisibility(View.INVISIBLE);
-                mLoadingTextView.setVisibility(View.VISIBLE);
-            }
+            mLoadingTextView.setText(String.format(resources.getString(R.string.textview_loading_friends), resources.getString(R.string.text_loading_friends_followers)));
         } else if (mFragmentBehavior == Constants.FRAGMENT_FOLLOWING) {
-            if (!mFollowingLoaded) {
-                mLoadingTextView.setText(resources.getString(R.string.textview_loading_following));
-                mProgressBar.show();
-                mRecyclerView.setVisibility(View.INVISIBLE);
-                mLoadingTextView.setVisibility(View.VISIBLE);
-            }
+            mLoadingTextView.setText(resources.getString(R.string.textview_loading_following));
         } else if (mFragmentBehavior == Constants.FRAGMENT_REQUESTS) {
-            if (!mRequestsLoaded) {
-                mLoadingTextView.setText(String.format(resources.getString(R.string.textview_loading_friends), resources.getString(R.string.text_loading_friends_requests)));
-                mProgressBar.show();
-                mRecyclerView.setVisibility(View.INVISIBLE);
-                mLoadingTextView.setVisibility(View.VISIBLE);
-            }
+            mLoadingTextView.setText(String.format(resources.getString(R.string.textview_loading_friends), resources.getString(R.string.text_loading_friends_requests)));
         }
 
         return rootView;
@@ -232,21 +228,31 @@ public class FriendsFragment extends Fragment {
         super.onStart();
 
         if (mFragmentBehavior == Constants.FRAGMENT_FIND_FRIENDS) {
-            getFollowing();     // Friends which the user is already following shouldn't be displayed.
             mParentActivity.setTitle(R.string.title_activity_main_find_friends);
             mNavigationMenu.findItem(R.id.nav_find_friends).setChecked(true);
         } else if (mFragmentBehavior == Constants.FRAGMENT_FOLLOWERS) {
-            getFollowers();
             mParentActivity.setTitle(R.string.title_activity_main_followers);
             mNavigationMenu.findItem(R.id.nav_followers).setChecked(true);
         } else if (mFragmentBehavior == Constants.FRAGMENT_FOLLOWING) {
-            getFollowing();
             mParentActivity.setTitle(R.string.title_activity_main_following);
             mNavigationMenu.findItem(R.id.nav_following).setChecked(true);
         } else if (mFragmentBehavior == Constants.FRAGMENT_REQUESTS) {
-            getRequests();
             mParentActivity.setTitle(R.string.title_activity_main_requests);
             mNavigationMenu.findItem(R.id.nav_requests).setChecked(true);
+        }
+
+        checkNetworkAndSyncData();
+
+        if (mNetworkReceiver == null) {
+            mNetworkReceiver = new BroadcastReceiver() {
+                @Override
+                public void onReceive(Context context, Intent intent) {
+                    if (intent.getAction().equals(CONNECTIVITY_ACTION)) {
+                        checkNetworkAndSyncData();
+                    }
+                }
+            };
+            mParentActivity.registerReceiver(mNetworkReceiver, new IntentFilter(CONNECTIVITY_ACTION));
         }
     }
 
@@ -254,24 +260,12 @@ public class FriendsFragment extends Fragment {
     public void onStop() {
         super.onStop();
 
-        /*
-         * The number of followers, requests and following should be updated in the cache as and when
-         * there is a change in the Firebase database. Updating them only here can result in unnecessary
-         * notifications.
-         */
+        stopDataSync();
 
-        if (mFollowersReference != null && mUserFollowersListener != null)
-            mFollowersReference.removeEventListener(mUserFollowersListener);
-        if (mFollowingReference != null && mUserFollowingListener != null)
-            mFollowingReference.removeEventListener(mUserFollowingListener);
-        if (mRequestsReference != null && mUserRequestsListener != null)
-            mRequestsReference.removeEventListener(mUserRequestsListener);
-        if (mMetaFollowingReference != null && mUserFollowingCountListener != null)
-            mMetaFollowingReference.removeEventListener(mUserFollowingCountListener);
-        if (mMetaFollowersReference != null && mUserFollowersCountListener != null)
-            mMetaFollowersReference.removeEventListener(mUserFollowersCountListener);
-        if (mMetaRequestsReference != null && mUserRequestsCountListener != null)
-            mMetaRequestsReference.removeEventListener(mUserRequestsCountListener);
+        if (mNetworkReceiver != null) {
+            mParentActivity.unregisterReceiver(mNetworkReceiver);
+            mNetworkReceiver = null;
+        }
     }
 
     private void updateAllFriends() {
@@ -343,9 +337,7 @@ public class FriendsFragment extends Fragment {
                     if (mFollowingCount == 0) {
                         if (!mFollowersLoaded) {
                             mFollowersLoaded = true;
-                            mProgressBar.hide();
-                            mRecyclerView.setVisibility(View.VISIBLE);
-                            mLoadingTextView.setVisibility(View.INVISIBLE);
+                            hideProgress();
                         }
                     }
 
@@ -364,9 +356,7 @@ public class FriendsFragment extends Fragment {
                                     if (mFollowers.size() == mFollowingCount) {
                                         if (!mFollowersLoaded) {
                                             mFollowersLoaded = true;
-                                            mProgressBar.hide();
-                                            mRecyclerView.setVisibility(View.VISIBLE);
-                                            mLoadingTextView.setVisibility(View.INVISIBLE);
+                                            hideProgress();
                                         }
                                     }
                                 }
@@ -438,9 +428,7 @@ public class FriendsFragment extends Fragment {
 
                         if (!mFollowingLoaded) {
                             mFollowingLoaded = true;
-                            mProgressBar.hide();
-                            mRecyclerView.setVisibility(View.VISIBLE);
-                            mLoadingTextView.setVisibility(View.INVISIBLE);
+                            hideProgress();
                         }
                     }
 
@@ -467,9 +455,7 @@ public class FriendsFragment extends Fragment {
 
                                         if (!mFollowingLoaded) {
                                             mFollowingLoaded = true;
-                                            mProgressBar.hide();
-                                            mRecyclerView.setVisibility(View.VISIBLE);
-                                            mLoadingTextView.setVisibility(View.INVISIBLE);
+                                            hideProgress();
                                         }
                                     }
                                 }
@@ -544,9 +530,7 @@ public class FriendsFragment extends Fragment {
                     if (mRequestsCount == 0) {
                         if (!mRequestsLoaded) {
                             mRequestsLoaded = true;
-                            mProgressBar.hide();
-                            mRecyclerView.setVisibility(View.VISIBLE);
-                            mLoadingTextView.setVisibility(View.INVISIBLE);
+                            hideProgress();
                         }
                     }
 
@@ -565,9 +549,7 @@ public class FriendsFragment extends Fragment {
                                     if (mRequests.size() == mRequestsCount) {
                                         if (!mRequestsLoaded) {
                                             mRequestsLoaded = true;
-                                            mProgressBar.hide();
-                                            mRecyclerView.setVisibility(View.VISIBLE);
-                                            mLoadingTextView.setVisibility(View.INVISIBLE);
+                                            hideProgress();
                                         }
                                     }
                                 }
@@ -607,6 +589,92 @@ public class FriendsFragment extends Fragment {
 
                 }
             });
+        }
+    }
+
+    private void showProgress() {
+        mProgressBar.show();
+        mRecyclerView.setVisibility(View.INVISIBLE);
+        mLoadingTextView.setVisibility(View.VISIBLE);
+    }
+
+    private void hideProgress() {
+        mProgressBar.hide();
+        mRecyclerView.setVisibility(View.VISIBLE);
+        mLoadingTextView.setVisibility(View.INVISIBLE);
+    }
+
+    private void stopDataSync() {
+        /*
+         * The number of followers, requests and following should be updated in the cache as and when
+         * there is a change in the Firebase database. Updating them only here can result in unnecessary
+         * notifications.
+         */
+
+        if (mFollowersReference != null && mUserFollowersListener != null)
+            mFollowersReference.removeEventListener(mUserFollowersListener);
+        if (mFollowingReference != null && mUserFollowingListener != null)
+            mFollowingReference.removeEventListener(mUserFollowingListener);
+        if (mRequestsReference != null && mUserRequestsListener != null)
+            mRequestsReference.removeEventListener(mUserRequestsListener);
+        if (mMetaFollowingReference != null && mUserFollowingCountListener != null)
+            mMetaFollowingReference.removeEventListener(mUserFollowingCountListener);
+        if (mMetaFollowersReference != null && mUserFollowersCountListener != null)
+            mMetaFollowersReference.removeEventListener(mUserFollowersCountListener);
+        if (mMetaRequestsReference != null && mUserRequestsCountListener != null)
+            mMetaRequestsReference.removeEventListener(mUserRequestsCountListener);
+    }
+
+    private void startDataSync() {
+        updateAllFriends();
+
+        if (mFragmentBehavior == Constants.FRAGMENT_FIND_FRIENDS) {
+            if (!mFollowingLoaded) {
+                showProgress();
+            }
+            getFollowing();  // Friends which the user is already following shouldn't be displayed.
+        } else if (mFragmentBehavior == Constants.FRAGMENT_FOLLOWERS) {
+            if (!mFollowersLoaded) {
+                showProgress();
+            }
+            getFollowers();
+        } else if (mFragmentBehavior == Constants.FRAGMENT_FOLLOWING) {
+            if (!mFollowingLoaded) {
+                showProgress();
+            }
+            getFollowing();
+        } else if (mFragmentBehavior == Constants.FRAGMENT_REQUESTS) {
+            if (!mRequestsLoaded) {
+                showProgress();
+            }
+            getRequests();
+        }
+    }
+
+
+    private void isConnected() {
+        mNetworkInfo = mConnectivityManager.getActiveNetworkInfo();
+        if (mNetworkInfo != null && mNetworkInfo.isConnected()) {
+            mIsConnected = true;
+            if (mNoConnectionSnackbar != null && mNoConnectionSnackbar.isShown()) {
+                mNoConnectionSnackbar.dismiss();
+            }
+        } else {
+            mIsConnected = false;
+            mNoConnectionSnackbar = Snackbar.make(mNavigationView, R.string.snackbar_no_internet, Snackbar.LENGTH_INDEFINITE);
+            mNoConnectionSnackbar.show();
+        }
+    }
+
+    private void checkNetworkAndSyncData() {
+        isConnected();
+        if (mIsConnected) {
+            startDataSync();
+            mRecyclerView.setVisibility(View.VISIBLE);
+        } else {
+            stopDataSync();
+            hideProgress();
+            mRecyclerView.setVisibility(View.INVISIBLE);
         }
     }
 

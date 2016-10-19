@@ -1,9 +1,14 @@
 package com.manoeuvres.android.activities;
 
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.res.ColorStateList;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.support.annotation.NonNull;
@@ -46,6 +51,8 @@ import java.util.ArrayList;
 import java.util.List;
 import com.manoeuvres.android.util.Constants;
 import com.manoeuvres.android.util.UniqueId;
+
+import static android.net.ConnectivityManager.CONNECTIVITY_ACTION;
 
 
 public class MainActivity extends AppCompatActivity
@@ -93,6 +100,12 @@ public class MainActivity extends AppCompatActivity
 
     private Gson mGson;
 
+    private ConnectivityManager mConnectivityManager;
+    private NetworkInfo mNetworkInfo;
+    private boolean mIsConnected;
+    private BroadcastReceiver mNetworkReceiver;
+
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -139,14 +152,28 @@ public class MainActivity extends AppCompatActivity
 
         /* Default fragment to show: Timeline of the user. */
         mFragmentManager.beginTransaction().add(R.id.content_main, TimelineFragment.newInstance(mUser.getUid(), mUser.getDisplayName()), Constants.TAG_FRAGMENT_TIMELINE).commit();
+
+        mConnectivityManager = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
+        mNetworkInfo = mConnectivityManager.getActiveNetworkInfo();
     }
 
     @Override
     protected void onStart() {
         super.onStart();
 
-        isMoveInProgress();
-        updateFollowing();
+        checkNetworkAndSyncData();
+
+        if (mNetworkReceiver == null) {
+            mNetworkReceiver = new BroadcastReceiver() {
+                @Override
+                public void onReceive(Context context, Intent intent) {
+                    if (intent.getAction().equals(CONNECTIVITY_ACTION)) {
+                        checkNetworkAndSyncData();
+                    }
+                }
+            };
+            registerReceiver(mNetworkReceiver, new IntentFilter(CONNECTIVITY_ACTION));
+        }
     }
 
     /*
@@ -310,12 +337,12 @@ public class MainActivity extends AppCompatActivity
         editor.putBoolean(Constants.KEY_SHARED_PREF_IS_MOVE_IN_PROGRESS, mMoveInProgress);
         editor.apply();
 
-        if (mUserLogsReference != null && mLatestLogListener != null)
-            mUserLogsReference.removeEventListener(mLatestLogListener);
-        if (mUserFollowingReference != null && mUserFollowingListener != null)
-            mUserFollowingReference.removeEventListener(mUserFollowingListener);
-        if (mUserFollowingCountReference != null && mUserFollowingCountListener != null)
-            mUserFollowingCountReference.removeEventListener(mUserFollowingCountListener);
+        stopDataSync();
+
+        if (mNetworkReceiver != null) {
+            unregisterReceiver(mNetworkReceiver);
+            mNetworkReceiver = null;
+        }
     }
 
     private void initializeViews() {
@@ -441,7 +468,7 @@ public class MainActivity extends AppCompatActivity
      * The friend is found by comparing the menuId of each friend to the menuId of the
      * menu item which was clicked.
      */
-    void startTimelineFragment(boolean isFriend, int menuId) {
+    private void startTimelineFragment(boolean isFriend, int menuId) {
         TimelineFragment fragment;
         if (isFriend) {
             for (Friend friend : mFollowing) {
@@ -460,19 +487,53 @@ public class MainActivity extends AppCompatActivity
         }
     }
 
-    void startFriendsFragment(int friendsFragmentBehavior) {
+    private void startFriendsFragment(int friendsFragmentBehavior) {
         FriendsFragment fragment = FriendsFragment.newInstance(friendsFragmentBehavior);
         mFab.hide();
         mFragmentManager.beginTransaction().replace(R.id.content_main, fragment).commit();
     }
 
-    void updateFab(boolean moveInProgress) {
+    private void updateFab(boolean moveInProgress) {
         if (moveInProgress) {
             mFab.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(MainActivity.this, R.color.colorFabStop)));
             mFab.setImageResource(R.drawable.ic_stop_white_24dp);
         } else {
             mFab.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(MainActivity.this, R.color.colorAccent)));
             mFab.setImageResource(R.drawable.ic_share_white_24dp);
+        }
+    }
+
+    private void startDataSync() {
+        isMoveInProgress();
+        updateFollowing();
+    }
+
+    private void stopDataSync() {
+        if (mUserLogsReference != null && mLatestLogListener != null)
+            mUserLogsReference.removeEventListener(mLatestLogListener);
+        if (mUserFollowingReference != null && mUserFollowingListener != null)
+            mUserFollowingReference.removeEventListener(mUserFollowingListener);
+        if (mUserFollowingCountReference != null && mUserFollowingCountListener != null)
+            mUserFollowingCountReference.removeEventListener(mUserFollowingCountListener);
+    }
+
+    private void isConnected() {
+        mNetworkInfo = mConnectivityManager.getActiveNetworkInfo();
+        if (mNetworkInfo != null && mNetworkInfo.isConnected()) {
+            mIsConnected = true;
+            mNavigationMenu.setGroupVisible(R.id.nav_group_profile, true);
+        } else {
+            mIsConnected = false;
+            mNavigationMenu.setGroupVisible(R.id.nav_group_profile, false);
+        }
+    }
+
+    private void checkNetworkAndSyncData() {
+        isConnected();
+        if (mIsConnected) {
+            startDataSync();
+        } else {
+            stopDataSync();
         }
     }
 

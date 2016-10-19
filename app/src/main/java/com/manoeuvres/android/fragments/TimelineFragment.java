@@ -1,12 +1,19 @@
 package com.manoeuvres.android.fragments;
 
 
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.res.Resources;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.support.annotation.Nullable;
 import android.support.design.widget.FloatingActionButton;
+import android.support.design.widget.Snackbar;
 import android.support.v4.app.Fragment;
 import android.support.v4.widget.ContentLoadingProgressBar;
 import android.support.v7.widget.LinearLayoutManager;
@@ -37,6 +44,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import static android.content.Context.CONNECTIVITY_SERVICE;
+import static android.net.ConnectivityManager.CONNECTIVITY_ACTION;
 
 
 public class TimelineFragment extends Fragment {
@@ -89,6 +99,12 @@ public class TimelineFragment extends Fragment {
     private FloatingActionButton mFab;
 
     private boolean mIsFriend;
+
+    private ConnectivityManager mConnectivityManager;
+    private NetworkInfo mNetworkInfo;
+    private boolean mIsConnected;
+    private BroadcastReceiver mNetworkReceiver;
+    private Snackbar mNoConnectionSnackbar;
 
     public TimelineFragment() {
         // Required empty public constructor
@@ -158,6 +174,8 @@ public class TimelineFragment extends Fragment {
         mMetaReference = mRootReference.child(Constants.FIREBASE_DATABASE_REFERENCE_META);
         mCurrentUserMovesCountReference = mMetaReference.child(Constants.FIREBASE_DATABASE_REFERENCE_META_MOVES).child(mCurrentUserId).child(Constants.FIREBASE_DATABASE_REFERENCE_META_MOVES_COUNT);
         mCurrentUserLogsCountReference = mMetaReference.child(Constants.FIREBASE_DATABASE_REFERENCE_META_LOGS).child(mCurrentUserId).child(Constants.FIREBASE_DATABASE_REFERENCE_META_LOGS_COUNT);
+
+        mConnectivityManager = (ConnectivityManager) mParentActivity.getSystemService(CONNECTIVITY_SERVICE);
     }
 
     @Override
@@ -191,18 +209,6 @@ public class TimelineFragment extends Fragment {
         }
         mLoadingTextView.setText(String.format(formatString, nameArgument));
 
-        /* If there was no cache, display progress until the data is loaded from the network. */
-        if (mMoves.size() == 0 || mLogs.size() == 0) {
-            mFab.hide();
-            mProgressBar.show();
-            mRecyclerView.setVisibility(View.INVISIBLE);
-            mLoadingTextView.setVisibility(View.VISIBLE);
-        } else {
-            mProgressBar.hide();
-            mRecyclerView.setVisibility(View.VISIBLE);
-            mLoadingTextView.setVisibility(View.INVISIBLE);
-        }
-
         return rootView;
     }
 
@@ -212,16 +218,18 @@ public class TimelineFragment extends Fragment {
 
         mParentActivity.setTitle(mCurrentUserName);
 
-        /*
-         * This method calls the updateLogs method after all the moves are updated. Calling it before can
-         * lead to empty view holders in the recycler view if some new moves were added by the friend
-         * when the fragment wasn't running.
-         */
-        updateMoves();
+        checkNetworkAndSyncData();
 
-        /* If this is not the first time onStart is getting called, the moves are already updated, update the logs. */
-        if (mMovesUpdated) {
-            updateLogs();
+        if (mNetworkReceiver == null) {
+            mNetworkReceiver = new BroadcastReceiver() {
+                @Override
+                public void onReceive(Context context, Intent intent) {
+                    if (intent.getAction().equals(CONNECTIVITY_ACTION)) {
+                        checkNetworkAndSyncData();
+                    }
+                }
+            };
+            mParentActivity.registerReceiver(mNetworkReceiver, new IntentFilter(CONNECTIVITY_ACTION));
         }
     }
 
@@ -233,12 +241,7 @@ public class TimelineFragment extends Fragment {
                     final int count = Integer.valueOf(dataSnapshot.getValue().toString());
 
                     if (count == 0) {
-                        mProgressBar.hide();
-                        mRecyclerView.setVisibility(View.VISIBLE);
-                        mLoadingTextView.setVisibility(View.INVISIBLE);
-                        if (!mIsFriend) {
-                            mFab.show();
-                        }
+                        hideProgress();
                     } else {
                         if (mLogsListener == null) {
                             mLogsListener = mCurrentUserLogsReference.limitToLast(Constants.LIMIT_LOG_COUNT).addChildEventListener(new ChildEventListener() {
@@ -268,12 +271,7 @@ public class TimelineFragment extends Fragment {
                                         limit = count;
                                     }
                                     if (mLogs.size() == limit) {
-                                        mProgressBar.hide();
-                                        mRecyclerView.setVisibility(View.VISIBLE);
-                                        mLoadingTextView.setVisibility(View.VISIBLE);
-                                        if (!mIsFriend) {
-                                            mFab.show();
-                                        }
+                                        hideProgress();
                                     }
                                 }
 
@@ -386,12 +384,84 @@ public class TimelineFragment extends Fragment {
         editor.putString(UniqueId.getMovesDataKey(mCurrentUserId), mGson.toJson(mMoves));
         editor.apply();
 
+        stopDataSync();
+
+        if (mNetworkReceiver != null) {
+            mParentActivity.unregisterReceiver(mNetworkReceiver);
+            mNetworkReceiver = null;
+        }
+    }
+
+    private void isConnected() {
+        mNetworkInfo = mConnectivityManager.getActiveNetworkInfo();
+        if (mNetworkInfo != null && mNetworkInfo.isConnected()) {
+            mIsConnected = true;
+            if (mNoConnectionSnackbar != null && mNoConnectionSnackbar.isShown()) {
+                mNoConnectionSnackbar.dismiss();
+            }
+        } else {
+            mIsConnected = false;
+            mNoConnectionSnackbar = Snackbar.make(mRecyclerView, R.string.snackbar_no_internet, Snackbar.LENGTH_INDEFINITE);
+            mNoConnectionSnackbar.show();
+        }
+    }
+
+    private void stopDataSync() {
         if (mCurrentUserLogsReference != null && mLogsListener != null)
             mCurrentUserLogsReference.removeEventListener(mLogsListener);
         if (mCurrentUserMovesReference != null && mMovesListener != null)
             mCurrentUserMovesReference.removeEventListener(mMovesListener);
         if (mCurrentUserMovesCountReference != null && mMovesCountListener != null) {
             mCurrentUserMovesCountReference.removeEventListener(mMovesCountListener);
+        }
+    }
+
+    private void startDataSync() {
+        /*
+         * This method calls the updateLogs method after all the moves are updated. Calling it before can
+         * lead to empty view holders in the recycler view if some new moves were added by the friend
+         * when the fragment wasn't running.
+         */
+        updateMoves();
+
+        /* If this is not the first time startDataSync is getting called, the moves are already updated, update the logs. */
+        if (mMovesUpdated) {
+            updateLogs();
+        }
+    }
+
+    private void checkNetworkAndSyncData() {
+        isConnected();
+        if (mIsConnected) {
+            /* If there is no cache, display progress until the data is loaded from the network. */
+            if (mMoves.size() == 0 || mLogs.size() == 0) {
+                showProgress();
+            } else {
+                hideProgress();
+            }
+            startDataSync();
+        } else {
+            hideProgress();
+            stopDataSync();
+            mFab.hide();
+        }
+    }
+
+    private void showProgress() {
+        mFab.hide();
+        mProgressBar.show();
+        mRecyclerView.setVisibility(View.INVISIBLE);
+        mLoadingTextView.setVisibility(View.VISIBLE);
+    }
+
+    private void hideProgress() {
+        mProgressBar.hide();
+        mRecyclerView.setVisibility(View.VISIBLE);
+        mLoadingTextView.setVisibility(View.INVISIBLE);
+        if (!mIsFriend) {
+            if (mIsConnected) {
+                mFab.show();
+            }
         }
     }
 
