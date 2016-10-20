@@ -388,6 +388,17 @@ public class MainActivity extends AppCompatActivity
         DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
         if (drawer.isDrawerOpen(GravityCompat.START)) {
             drawer.closeDrawer(GravityCompat.START);
+        } else {
+            /* The back button should always take the user to the timeline. */
+            int count = mFragmentManager.getBackStackEntryCount();
+            if (count > 0) {
+                do {
+                    mFragmentManager.popBackStack();
+                    count--;
+                } while (count > 0);
+            } else {
+                super.onBackPressed();
+            }
         }
     }
 
@@ -397,67 +408,23 @@ public class MainActivity extends AppCompatActivity
 
         int id = item.getItemId();
 
-        /* States whether the TimelineFragment should display the user's logs, or a friend's logs. */
-        boolean isFriend = false;
-
-        /*
-         * States the behaviour of the FriendsFragment.
-         * It can be used to remove followers, un-follow friends, follow new friends, and accept
-         * follow requests.
-         */
-        int friendsFragmentBehavior = 0;
-
-        Class fragmentClass;
-
         if (id == R.id.nav_timeline) {
-            fragmentClass = TimelineFragment.class;
+            startTimelineFragment(false, id);
         } else if (id == R.id.nav_followers) {
-            if (!mNavigationMenu.findItem(R.id.nav_followers).isChecked()) {
-                fragmentClass = FriendsFragment.class;
-                friendsFragmentBehavior = Constants.FRAGMENT_FOLLOWERS;
-            } else {
-                mDrawerLayout.closeDrawer(GravityCompat.START);
-                return true;
-            }
+            startFriendsFragment(Constants.FRAGMENT_FOLLOWERS, id);
         } else if (id == R.id.nav_following) {
-            if (!mNavigationMenu.findItem(R.id.nav_following).isChecked()) {
-                fragmentClass = FriendsFragment.class;
-                friendsFragmentBehavior = Constants.FRAGMENT_FOLLOWING;
-            } else {
-                mDrawerLayout.closeDrawer(GravityCompat.START);
-                return true;
-            }
+            startFriendsFragment(Constants.FRAGMENT_FOLLOWING, id);
         } else if (id == R.id.nav_find_friends) {
-            if (!mNavigationMenu.findItem(R.id.nav_find_friends).isChecked()) {
-                fragmentClass = FriendsFragment.class;
-                friendsFragmentBehavior = Constants.FRAGMENT_FIND_FRIENDS;
-            } else {
-                mDrawerLayout.closeDrawer(GravityCompat.START);
-                return true;
-            }
+            startFriendsFragment(Constants.FRAGMENT_FIND_FRIENDS, id);
         } else if (id == R.id.nav_requests) {
-            if (!mNavigationMenu.findItem(R.id.nav_requests).isChecked()) {
-                fragmentClass = FriendsFragment.class;
-                friendsFragmentBehavior = Constants.FRAGMENT_REQUESTS;
-            } else {
-                mDrawerLayout.closeDrawer(GravityCompat.START);
-                return true;
-            }
+            startFriendsFragment(Constants.FRAGMENT_REQUESTS, id);
         } else if (id == R.id.nav_settings) {
             return false;
         } else if (id == R.id.nav_log_out) {
             return false;
         } else {
-            isFriend = true;
-            fragmentClass = TimelineFragment.class;
+            startTimelineFragment(true, id);
         }
-
-        if (fragmentClass == TimelineFragment.class) {
-            startTimelineFragment(isFriend, id);
-        } else if (fragmentClass == FriendsFragment.class) {
-            startFriendsFragment(friendsFragmentBehavior);
-        }
-
 
         mDrawerLayout.closeDrawer(GravityCompat.START);
         return true;
@@ -469,28 +436,61 @@ public class MainActivity extends AppCompatActivity
      * menu item which was clicked.
      */
     private void startTimelineFragment(boolean isFriend, int menuId) {
-        TimelineFragment fragment;
-        if (isFriend) {
-            for (Friend friend : mFollowing) {
-                if (UniqueId.getMenuId(friend) == menuId) {
-                    fragment = TimelineFragment.newInstance(friend.getFirebaseId(), friend.getName());
-                    mFragmentManager.beginTransaction().replace(R.id.content_main, fragment).commit();
-                    mFab.hide();
-                    break;
-                }
-            }
-
+        if (mNavigationMenu.findItem(menuId).isChecked()) {
+            mDrawerLayout.closeDrawer(GravityCompat.START);
         } else {
-            fragment = TimelineFragment.newInstance(mUser.getUid(), mUser.getDisplayName());
-            mFragmentManager.beginTransaction().replace(R.id.content_main, fragment).commit();
-            mFab.show();
+            TimelineFragment fragment;
+            if (isFriend) {
+                for (Friend friend : mFollowing) {
+                    if (UniqueId.getMenuId(friend) == menuId) {
+                        fragment = (TimelineFragment) mFragmentManager.findFragmentByTag(UniqueId.getTimelineFragmentTag(friend));
+                        if (fragment == null) {
+                            fragment = TimelineFragment.newInstance(friend.getFirebaseId(), friend.getName());
+                        }
+                        mFragmentManager.beginTransaction().replace(R.id.content_main, fragment, UniqueId.getTimelineFragmentTag(friend)).addToBackStack("").commit();
+                        mFab.hide();
+                        break;
+                    }
+                }
+
+            } else {
+                /* Simulate the back button if timeline is selected in the navigation menu. */
+                fragment = (TimelineFragment) mFragmentManager.findFragmentByTag(Constants.TAG_FRAGMENT_TIMELINE);
+                if (fragment == null) {
+                    fragment = TimelineFragment.newInstance(mUser.getUid(), mUser.getDisplayName());
+                    mFragmentManager.beginTransaction().replace(R.id.content_main, fragment, Constants.TAG_FRAGMENT_TIMELINE).commit();
+                } else {
+                    for (int i = 0; i < mFragmentManager.getBackStackEntryCount(); i++) {
+                        mFragmentManager.popBackStack();
+                    }
+                }
+                mFab.show();
+            }
         }
     }
 
-    private void startFriendsFragment(int friendsFragmentBehavior) {
-        FriendsFragment fragment = FriendsFragment.newInstance(friendsFragmentBehavior);
-        mFab.hide();
-        mFragmentManager.beginTransaction().replace(R.id.content_main, fragment).commit();
+    private void startFriendsFragment(int friendsFragmentBehavior, int menuId) {
+        if (mNavigationMenu.findItem(menuId).isChecked()) {
+            mDrawerLayout.closeDrawer(GravityCompat.START);
+        } else {
+            String fragmentTag = null;
+            if (friendsFragmentBehavior == Constants.FRAGMENT_FOLLOWING) {
+                fragmentTag = Constants.TAG_FRAGMENT_FOLLOWING;
+            } else if (friendsFragmentBehavior == Constants.FRAGMENT_FOLLOWERS) {
+                fragmentTag = Constants.TAG_FRAGMENT_FOLLOWERS;
+            } else if (friendsFragmentBehavior == Constants.FRAGMENT_FIND_FRIENDS) {
+                fragmentTag = Constants.TAG_FRAGMENT_FIND_FRIENDS;
+            } else if (friendsFragmentBehavior == Constants.FRAGMENT_REQUESTS) {
+                fragmentTag = Constants.TAG_FRAGMENT_REQUESTS;
+            }
+
+            FriendsFragment fragment = (FriendsFragment) mFragmentManager.findFragmentByTag(fragmentTag);
+            if (fragment == null) {
+                fragment = FriendsFragment.newInstance(friendsFragmentBehavior);
+            }
+            mFab.hide();
+            mFragmentManager.beginTransaction().replace(R.id.content_main, fragment, fragmentTag).addToBackStack("").commit();
+        }
     }
 
     private void updateFab(boolean moveInProgress) {

@@ -12,7 +12,9 @@ import android.net.NetworkInfo;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.support.annotation.Nullable;
+import android.support.design.internal.NavigationMenu;
 import android.support.design.widget.FloatingActionButton;
+import android.support.design.widget.NavigationView;
 import android.support.design.widget.Snackbar;
 import android.support.v4.app.Fragment;
 import android.support.v4.widget.ContentLoadingProgressBar;
@@ -34,6 +36,7 @@ import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.manoeuvres.android.R;
 import com.manoeuvres.android.activities.MainActivity;
+import com.manoeuvres.android.models.Friend;
 import com.manoeuvres.android.models.Log;
 import com.manoeuvres.android.models.Move;
 import com.manoeuvres.android.util.Constants;
@@ -87,6 +90,9 @@ public class TimelineFragment extends Fragment {
     private SharedPreferences mSharedPreferences;
 
     private MainActivity mParentActivity;
+    private FloatingActionButton mFab;
+    private NavigationView mNavigationView;
+    private NavigationMenu mNavigationMenu;
 
     private Gson mGson;
 
@@ -95,8 +101,6 @@ public class TimelineFragment extends Fragment {
 
     private ContentLoadingProgressBar mProgressBar;
     private TextView mLoadingTextView;
-
-    private FloatingActionButton mFab;
 
     private boolean mIsFriend;
 
@@ -199,6 +203,9 @@ public class TimelineFragment extends Fragment {
         mProgressBar = (ContentLoadingProgressBar) rootView.findViewById(R.id.progress_bar_timeline);
         mLoadingTextView = (TextView) rootView.findViewById(R.id.textView_loading_logs);
 
+        mNavigationView = (NavigationView) mParentActivity.findViewById(R.id.nav_view);
+        mNavigationMenu = (NavigationMenu) mNavigationView.getMenu();
+
         Resources resources = getResources();
         String formatString = resources.getString(R.string.textview_loading_logs);
         String nameArgument;
@@ -217,6 +224,11 @@ public class TimelineFragment extends Fragment {
         super.onStart();
 
         mParentActivity.setTitle(mCurrentUserName);
+        if (!mIsFriend) {
+            mNavigationMenu.findItem(R.id.nav_timeline).setChecked(true);
+        } else {
+            mNavigationMenu.findItem(UniqueId.getMenuId(new Friend(mCurrentUserId))).setChecked(true);
+        }
 
         checkNetworkAndSyncData();
 
