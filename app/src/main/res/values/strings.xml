@@ -65,5 +65,6 @@
     <string name="notification_text_request_accepted">Sure! you can follow me :)</string>
     <string name="notification_text_log_present">"I'm "</string>
     <string name="notification_text_log_past">"I "</string>
+    <string name="image_description_profile_picture">Your Facebook profile picture.</string>
 
 </resources>
