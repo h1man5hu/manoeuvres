@@ -29,6 +29,9 @@ public class Constants {
     public static final String FIREBASE_DATABASE_REFERENCE_FOLLOWERS = "followers";
     public static final String FIREBASE_DATABASE_REFERENCE_FOLLOWING = "following";
     public static final String FIREBASE_DATABASE_REFERENCE_MOVES = "moves";
+    public static final String FIREBASE_DATABASE_REFERENCE_MOVES_NAME = "name";
+    public static final String FIREBASE_DATABASE_REFERENCE_MOVES_PRESENT = "present";
+    public static final String FIREBASE_DATABASE_REFERENCE_MOVES_PAST = "past";
     public static final String FIREBASE_DATABASE_REFERENCE_LOGS = "logs";
     public static final String FIREBASE_DATABASE_REFERENCE_LOGS_ENDTIME = "endTime";
     public static final String FIREBASE_DATABASE_REFERENCE_REQUESTS = "requests";
@@ -58,10 +61,8 @@ public class Constants {
     public static final String FACEBOOK_PERMISSION_PUBLIC_PROFILE = "public_profile";
     public static final String FACEBOOK_PERMISSION_USER_FRIENDS = "user_friends";
 
-    public static final String KEY_SHARED_PREF_COUNT_FRIENDS = "friendsCount";
-    public static final String KEY_SHARED_PREF_COUNT_FOLLOWERS = "followersCount";
-    public static final String KEY_SHARED_PREF_COUNT_FOLLOWING = "followingCount";
-    public static final String KEY_SHARED_PREF_COUNT_REQUESTS = "requestsCount";
+    public static final String KEY_SHARED_PREF_DATA_FOLLOWERS = "followersData";
+    public static final String KEY_SHARED_PREF_DATA_REQUESTS = "requestsData";
     public static final String KEY_SHARED_PREF_DATA_FOLLOWING = "followingData";
     public static final String KEY_SHARED_PREF_DATA_FRIENDS = "friendsData";
     public static final String KEY_SHARED_PREF_IS_MOVE_IN_PROGRESS = "isMoveInProgress";
@@ -69,6 +70,12 @@ public class Constants {
     public static final String KEY_EXTRA_FRAGMENT_REQUESTS = "requestsFragmentKey";
     public static final String KEY_EXTRA_FRAGMENT_TIMELINE = "timelineFragmentKey";
     public static final String KEY_EXTRA_FRAGMENT_TIMELINE_FRIEND_ID = "friendIdKey";
+
+    public static final String NOTIFICATION_TYPE_REQUEST = "requestNotification";
+    public static final String NOTIFICATION_TYPE_FOLLOWING = "followingNotification";
+    public static final String NOTIFICATION_TYPE_LOG = "logNotification";
+
+    public static final String KEY_EXTRA_NOTIFICATION_SERVICE = "com.manoeuvres.android.services.NotificationService";
 
     public static final int LIMIT_LOG_COUNT = 20;
 }

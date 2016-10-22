@@ -45,10 +45,11 @@ import com.manoeuvres.android.R;
 import com.manoeuvres.android.fragments.FriendsFragment;
 import com.manoeuvres.android.fragments.TimelineFragment;
 import com.manoeuvres.android.models.Friend;
-
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.List;
+
+import com.manoeuvres.android.services.NotificationService;
 import com.manoeuvres.android.util.Constants;
 import com.manoeuvres.android.util.UniqueId;
 
@@ -64,23 +65,16 @@ public class MainActivity extends AppCompatActivity
      */
     private List<Friend> mFollowing;
 
-    private Toolbar mToolbar;
     private FloatingActionButton mFab;
     private DrawerLayout mDrawerLayout;
-    private ActionBarDrawerToggle mToggle;
-    private NavigationView mNavigationView;
-    private View mNavigationHeaderView;
     private NavigationMenu mNavigationMenu;
 
     private FirebaseUser mUser;
 
-    private DatabaseReference mRootReference;
     private DatabaseReference mUsersReference;
     private DatabaseReference mUserFollowingReference;
     private DatabaseReference mUserMovesReference;
     private DatabaseReference mUserLogsReference;
-    private DatabaseReference mMetaReference;
-    private DatabaseReference mMetaFollowingReference;
     private DatabaseReference mUserFollowingCountReference;
     private DatabaseReference mUserLogsCountReference;
 
@@ -136,15 +130,15 @@ public class MainActivity extends AppCompatActivity
         mMoveInProgress = mSharedPreferences.getBoolean(Constants.KEY_SHARED_PREF_IS_MOVE_IN_PROGRESS, false);
 
         FirebaseDatabase firebaseDatabase = FirebaseDatabase.getInstance();
-        mRootReference = firebaseDatabase.getReference();
-        mUsersReference = mRootReference.child(Constants.FIREBASE_DATABASE_REFERENCE_USERS);
-        mUserMovesReference = mRootReference.child(Constants.FIREBASE_DATABASE_REFERENCE_MOVES).child(mUser.getUid());
-        mUserFollowingReference = mRootReference.child(Constants.FIREBASE_DATABASE_REFERENCE_FOLLOWING).child(mUser.getUid());
-        mMetaReference = mRootReference.child(Constants.FIREBASE_DATABASE_REFERENCE_META);
-        mUserLogsReference = mRootReference.child(Constants.FIREBASE_DATABASE_REFERENCE_LOGS).child(mUser.getUid());
-        mMetaFollowingReference = mMetaReference.child(Constants.FIREBASE_DATABASE_REFERENCE_META_FOLLOWING);
-        mUserFollowingCountReference = mMetaFollowingReference.child(mUser.getUid()).child(Constants.FIREBASE_DATABASE_REFERENCE_META_FOLLOWING_COUNT);
-        mUserLogsCountReference = mMetaReference.child(Constants.FIREBASE_DATABASE_REFERENCE_META_LOGS).child(mUser.getUid()).child(Constants.FIREBASE_DATABASE_REFERENCE_META_LOGS_COUNT);
+        DatabaseReference rootReference = firebaseDatabase.getReference();
+        mUsersReference = rootReference.child(Constants.FIREBASE_DATABASE_REFERENCE_USERS);
+        mUserMovesReference = rootReference.child(Constants.FIREBASE_DATABASE_REFERENCE_MOVES).child(mUser.getUid());
+        mUserFollowingReference = rootReference.child(Constants.FIREBASE_DATABASE_REFERENCE_FOLLOWING).child(mUser.getUid());
+        DatabaseReference metaReference = rootReference.child(Constants.FIREBASE_DATABASE_REFERENCE_META);
+        mUserLogsReference = rootReference.child(Constants.FIREBASE_DATABASE_REFERENCE_LOGS).child(mUser.getUid());
+        DatabaseReference metaFollowingReference = metaReference.child(Constants.FIREBASE_DATABASE_REFERENCE_META_FOLLOWING);
+        mUserFollowingCountReference = metaFollowingReference.child(mUser.getUid()).child(Constants.FIREBASE_DATABASE_REFERENCE_META_FOLLOWING_COUNT);
+        mUserLogsCountReference = metaReference.child(Constants.FIREBASE_DATABASE_REFERENCE_META_LOGS).child(mUser.getUid()).child(Constants.FIREBASE_DATABASE_REFERENCE_META_LOGS_COUNT);
 
         initializeViews();
 
@@ -155,6 +149,8 @@ public class MainActivity extends AppCompatActivity
 
         mConnectivityManager = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
         mNetworkInfo = mConnectivityManager.getActiveNetworkInfo();
+
+        startService(new Intent(this, NotificationService.class));
     }
 
     @Override
@@ -188,12 +184,8 @@ public class MainActivity extends AppCompatActivity
                 public void onDataChange(DataSnapshot dataSnapshot) {
                     if (dataSnapshot.hasChildren()) {
 
-                    /* If the endTime field of the latest log has a default value (0), the move is still in progress. */
-                        if (dataSnapshot.getChildren().iterator().next().getValue(com.manoeuvres.android.models.Log.class).getEndTime() == 0) {
-                            mMoveInProgress = true;
-                        } else {
-                            mMoveInProgress = false;
-                        }
+                        /* If the endTime field of the latest log has a default value (0), the move is still in progress. */
+                        mMoveInProgress = dataSnapshot.getChildren().iterator().next().getValue(com.manoeuvres.android.models.Log.class).getEndTime() == 0;
 
                         updateFab(mMoveInProgress);
                     }
@@ -245,41 +237,47 @@ public class MainActivity extends AppCompatActivity
                             @Override
                             public void onChildAdded(DataSnapshot dataSnapshot, String s) {
                                 final String firebaseId = dataSnapshot.getValue().toString();
-                                if (mFollowing.indexOf(firebaseId) == -1) {
-                            /* Get the details of the added friend from the users reference using the firebase id. */
-                                    mUsersReference.child(firebaseId).addListenerForSingleValueEvent(new ValueEventListener() {
-                                        @Override
-                                        public void onDataChange(DataSnapshot dataSnapshot) {
-                                            Friend friend = dataSnapshot.getValue(Friend.class);
-                                            friend.setFirebaseId(firebaseId);
+
+                                /* Get the details of the added friend from the users reference using the firebase id. */
+                                mUsersReference.child(firebaseId).addListenerForSingleValueEvent(new ValueEventListener() {
+                                    @Override
+                                    public void onDataChange(DataSnapshot dataSnapshot) {
+                                        Friend friend = dataSnapshot.getValue(Friend.class);
+                                        friend.setFirebaseId(firebaseId);
+                                        if (mFollowing.indexOf(friend) == -1)
                                             mFollowing.add(friend);
-
-                                            int friendMenuId = UniqueId.getMenuId(friend);
-                                            if (mNavigationMenu.findItem(friendMenuId) == null) {
-                                                mNavigationMenu.add(R.id.nav_group_timelines, friendMenuId, 1, friend.getName()).setCheckable(true);
-                                            }
+                                        else {
+                                            mFollowing.get(mFollowing.indexOf(friend)).setName(friend.getName());
+                                            MenuItem menuItem = mNavigationMenu.findItem(UniqueId.getMenuId(friend));
+                                            if (menuItem != null)
+                                                menuItem.setTitle(friend.getName());
                                         }
 
-                                        @Override
-                                        public void onCancelled(DatabaseError databaseError) {
-
+                                        int friendMenuId = UniqueId.getMenuId(friend);
+                                        if (mNavigationMenu.findItem(friendMenuId) == null) {
+                                            mNavigationMenu.add(R.id.nav_group_timelines, friendMenuId, 1, friend.getName()).setCheckable(true);
                                         }
-                                    });
-                                    updatedFollowing.add(new Friend(firebaseId));
+                                    }
 
-                            /*
-                             * All the friends have been retrieved, subtract the list and remove menu items
-                             * for removed friends, if any.
-                             */
-                                    if (updatedFollowing.size() == count) {
-                                        if (mFollowing.size() > count) {
-                                            List<Friend> removedFollowing = new ArrayList<>(mFollowing);
-                                            removedFollowing.removeAll(updatedFollowing);
-                                            for (Friend removedFriend : removedFollowing) {
-                                                int removedFriendMenuId = UniqueId.getMenuId(removedFriend);
-                                                if (mNavigationMenu.findItem(removedFriendMenuId) != null) {
-                                                    mNavigationMenu.removeItem(removedFriendMenuId);
-                                                }
+                                    @Override
+                                    public void onCancelled(DatabaseError databaseError) {
+
+                                    }
+                                });
+                                updatedFollowing.add(new Friend(firebaseId));
+
+                                /*
+                                 * All the friends have been retrieved, subtract the list and remove menu items
+                                 * for removed friends, if any.
+                                 */
+                                if (updatedFollowing.size() == count) {
+                                    if (mFollowing.size() > count) {
+                                        List<Friend> removedFollowing = new ArrayList<>(mFollowing);
+                                        removedFollowing.removeAll(updatedFollowing);
+                                        for (Friend removedFriend : removedFollowing) {
+                                            int removedFriendMenuId = UniqueId.getMenuId(removedFriend);
+                                            if (mNavigationMenu.findItem(removedFriendMenuId) != null) {
+                                                mNavigationMenu.removeItem(removedFriendMenuId);
                                             }
                                         }
                                     }
@@ -346,8 +344,8 @@ public class MainActivity extends AppCompatActivity
     }
 
     private void initializeViews() {
-        mToolbar = (Toolbar) findViewById(R.id.toolbar);
-        setSupportActionBar(mToolbar);
+        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
+        setSupportActionBar(toolbar);
 
         mFab = (FloatingActionButton) findViewById(R.id.fab);
         mFab.setOnClickListener(new FabClickListener());
@@ -356,21 +354,21 @@ public class MainActivity extends AppCompatActivity
 
         mDrawerLayout = (DrawerLayout) findViewById(R.id.drawer_layout);
 
-        mToggle = new ActionBarDrawerToggle(
-                this, mDrawerLayout, mToolbar, R.string.navigation_drawer_open, R.string.navigation_drawer_close);
-        mDrawerLayout.addDrawerListener(mToggle);
-        mToggle.syncState();
+        ActionBarDrawerToggle toggle = new ActionBarDrawerToggle(
+                this, mDrawerLayout, toolbar, R.string.navigation_drawer_open, R.string.navigation_drawer_close);
+        mDrawerLayout.addDrawerListener(toggle);
+        toggle.syncState();
 
-        mNavigationView = (NavigationView) findViewById(R.id.nav_view);
-        mNavigationView.setNavigationItemSelectedListener(this);
+        NavigationView navigationView = (NavigationView) findViewById(R.id.nav_view);
+        navigationView.setNavigationItemSelectedListener(this);
 
-        mNavigationMenu = (NavigationMenu) mNavigationView.getMenu();
+        mNavigationMenu = (NavigationMenu) navigationView.getMenu();
         mNavigationMenu.findItem(R.id.nav_timeline).setChecked(true); //Set user's timeline as default position.
 
-        mNavigationHeaderView = mNavigationView.getHeaderView(0);
-        TextView name = (TextView) mNavigationHeaderView.findViewById(R.id.navigation_header_textview_name);
+        View navigationHeaderView = navigationView.getHeaderView(0);
+        TextView name = (TextView) navigationHeaderView.findViewById(R.id.navigation_header_textview_name);
         name.setText(mUser.getDisplayName());
-        ImageView profilePicture = (ImageView) mNavigationHeaderView.findViewById(R.id.navigation_header_imageview_profile_picture);
+        ImageView profilePicture = (ImageView) navigationHeaderView.findViewById(R.id.navigation_header_imageview_profile_picture);
         profilePicture.setVisibility(View.INVISIBLE);
 
         /* Add the menu items for the cached friends to the navigation menu. */
@@ -436,7 +434,8 @@ public class MainActivity extends AppCompatActivity
      * menu item which was clicked.
      */
     private void startTimelineFragment(boolean isFriend, int menuId) {
-        if (mNavigationMenu.findItem(menuId).isChecked()) {
+        MenuItem menuItem = mNavigationMenu.findItem(menuId);
+        if (menuItem != null && menuItem.isChecked()) {
             mDrawerLayout.closeDrawer(GravityCompat.START);
         } else {
             TimelineFragment fragment;
@@ -509,12 +508,21 @@ public class MainActivity extends AppCompatActivity
     }
 
     private void stopDataSync() {
-        if (mUserLogsReference != null && mLatestLogListener != null)
+        if (mUserLogsReference != null && mLatestLogListener != null) {
             mUserLogsReference.removeEventListener(mLatestLogListener);
-        if (mUserFollowingReference != null && mUserFollowingListener != null)
+            mLatestLogListener = null;
+        }
+
+        if (mUserFollowingReference != null && mUserFollowingListener != null) {
             mUserFollowingReference.removeEventListener(mUserFollowingListener);
-        if (mUserFollowingCountReference != null && mUserFollowingCountListener != null)
+            mUserFollowingListener = null;
+        }
+
+        if (mUserFollowingCountReference != null && mUserFollowingCountListener != null) {
             mUserFollowingCountReference.removeEventListener(mUserFollowingCountListener);
+            mUserFollowingCountListener = null;
+        }
+
     }
 
     private void isConnected() {
@@ -534,6 +542,20 @@ public class MainActivity extends AppCompatActivity
             startDataSync();
         } else {
             stopDataSync();
+        }
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        Bundle bundle = intent.getExtras();
+        String notificationType = bundle.getString(Constants.KEY_EXTRA_NOTIFICATION_SERVICE);
+        if (notificationType != null) {
+            if (notificationType.equals(Constants.NOTIFICATION_TYPE_REQUEST)) {
+                startFriendsFragment(Constants.FRAGMENT_REQUESTS, R.id.nav_requests);
+            } else if (notificationType.equals(Constants.NOTIFICATION_TYPE_FOLLOWING) || (notificationType.equals(Constants.NOTIFICATION_TYPE_LOG))) {
+                startTimelineFragment(true, UniqueId.getMenuId(new Friend(bundle.getString(Constants.KEY_EXTRA_FRAGMENT_TIMELINE_FRIEND_ID))));
+            }
         }
     }
 

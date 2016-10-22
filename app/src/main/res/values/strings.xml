@@ -61,4 +61,9 @@
 
     <string name="snackbar_no_internet">No internet connection</string>
 
+    <string name="notification_text_new_request">Hi, I would like to follow you!</string>
+    <string name="notification_text_request_accepted">Sure! you can follow me :)</string>
+    <string name="notification_text_log_present">"I'm "</string>
+    <string name="notification_text_log_past">"I "</string>
+
 </resources>

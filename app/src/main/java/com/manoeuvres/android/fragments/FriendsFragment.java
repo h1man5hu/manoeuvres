@@ -2,6 +2,7 @@ package com.manoeuvres.android.fragments;
 
 
 import android.app.Activity;
+import android.app.NotificationManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -41,6 +42,8 @@ import com.google.gson.reflect.TypeToken;
 import com.manoeuvres.android.R;
 import com.manoeuvres.android.models.Friend;
 import com.manoeuvres.android.util.Constants;
+import com.manoeuvres.android.util.UniqueId;
+
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -71,15 +74,11 @@ public class FriendsFragment extends Fragment {
 
     private RecyclerView mRecyclerView;
     private RecyclerView.Adapter mAdapter;
-    private RecyclerView.LayoutManager mLayoutManager;
 
-    private FirebaseDatabase mDatabase;
-    private DatabaseReference mRootReference;
     private DatabaseReference mFollowersReference;
     private DatabaseReference mFollowingReference;
     private DatabaseReference mRequestsReference;
     private DatabaseReference mUsersReference;
-    private DatabaseReference mMetaReference;
     private DatabaseReference mMetaFollowingReference;
     private DatabaseReference mMetaFollowersReference;
     private DatabaseReference mMetaRequestsReference;
@@ -123,10 +122,11 @@ public class FriendsFragment extends Fragment {
     private boolean mRequestsLoaded;
 
     private ConnectivityManager mConnectivityManager;
-    private NetworkInfo mNetworkInfo;
     private boolean mIsConnected;
     private BroadcastReceiver mNetworkReceiver;
     private Snackbar mNoConnectionSnackbar;
+
+    private NotificationManager mNotificationManager;
 
     public FriendsFragment() {
         // Required empty public constructor
@@ -152,21 +152,21 @@ public class FriendsFragment extends Fragment {
 
         mUser = FirebaseAuth.getInstance().getCurrentUser();
 
-        mDatabase = FirebaseDatabase.getInstance();
-        mRootReference = mDatabase.getReference();
-        mMetaReference = mRootReference.child(Constants.FIREBASE_DATABASE_REFERENCE_META);
-        mUsersReference = mRootReference.child(Constants.FIREBASE_DATABASE_REFERENCE_USERS);
-        mFollowersReference = mRootReference.child(Constants.FIREBASE_DATABASE_REFERENCE_FOLLOWERS);
+        FirebaseDatabase database = FirebaseDatabase.getInstance();
+        DatabaseReference rootReference = database.getReference();
+        DatabaseReference metaReference = rootReference.child(Constants.FIREBASE_DATABASE_REFERENCE_META);
+        mUsersReference = rootReference.child(Constants.FIREBASE_DATABASE_REFERENCE_USERS);
+        mFollowersReference = rootReference.child(Constants.FIREBASE_DATABASE_REFERENCE_FOLLOWERS);
         mUserFollowersReference = mFollowersReference.child(mUser.getUid());
-        mMetaFollowersReference = mMetaReference.child(Constants.FIREBASE_DATABASE_REFERENCE_META_FOLLOWERS);
+        mMetaFollowersReference = metaReference.child(Constants.FIREBASE_DATABASE_REFERENCE_META_FOLLOWERS);
         mUserFollowersCountReference = mMetaFollowersReference.child(mUser.getUid()).child(Constants.FIREBASE_DATABASE_REFERENCE_META_FOLLOWERS_COUNT);
-        mFollowingReference = mRootReference.child(Constants.FIREBASE_DATABASE_REFERENCE_FOLLOWING);
+        mFollowingReference = rootReference.child(Constants.FIREBASE_DATABASE_REFERENCE_FOLLOWING);
         mUserFollowingReference = mFollowingReference.child(mUser.getUid());
-        mMetaFollowingReference = mMetaReference.child(Constants.FIREBASE_DATABASE_REFERENCE_META_FOLLOWING);
+        mMetaFollowingReference = metaReference.child(Constants.FIREBASE_DATABASE_REFERENCE_META_FOLLOWING);
         mUserFollowingCountReference = mMetaFollowingReference.child(mUser.getUid()).child(Constants.FIREBASE_DATABASE_REFERENCE_META_FOLLOWING_COUNT);
-        mRequestsReference = mRootReference.child(Constants.FIREBASE_DATABASE_REFERENCE_REQUESTS);
+        mRequestsReference = rootReference.child(Constants.FIREBASE_DATABASE_REFERENCE_REQUESTS);
         mUserRequestsReference = mRequestsReference.child(mUser.getUid());
-        mMetaRequestsReference = mMetaReference.child(Constants.FIREBASE_DATABASE_REFERENCE_META_REQUESTS);
+        mMetaRequestsReference = metaReference.child(Constants.FIREBASE_DATABASE_REFERENCE_META_REQUESTS);
         mUserRequestsCountReference = mMetaRequestsReference.child(mUser.getUid()).child(Constants.FIREBASE_DATABASE_REFERENCE_META_REQUESTS_COUNT);
 
         mSharedPreferences = PreferenceManager.getDefaultSharedPreferences(getActivity().getApplicationContext());
@@ -184,6 +184,8 @@ public class FriendsFragment extends Fragment {
         }
 
         mConnectivityManager = (ConnectivityManager) mParentActivity.getSystemService(CONNECTIVITY_SERVICE);
+
+        mNotificationManager = (NotificationManager) mParentActivity.getSystemService(Context.NOTIFICATION_SERVICE);
     }
 
     @Override
@@ -195,8 +197,8 @@ public class FriendsFragment extends Fragment {
 
         mRecyclerView.setHasFixedSize(true);
 
-        mLayoutManager = new LinearLayoutManager(getContext());
-        mRecyclerView.setLayoutManager(mLayoutManager);
+        RecyclerView.LayoutManager layoutManager = new LinearLayoutManager(getContext());
+        mRecyclerView.setLayoutManager(layoutManager);
 
         mAdapter = new FriendsAdapter();
         mRecyclerView.setAdapter(mAdapter);
@@ -339,6 +341,7 @@ public class FriendsFragment extends Fragment {
                             mFollowersLoaded = true;
                             hideProgress();
                         }
+                        mSharedPreferences.edit().remove(Constants.KEY_SHARED_PREF_DATA_FOLLOWERS).apply();
                     }
 
                     if (mFollowersCount > 0) {
@@ -350,7 +353,6 @@ public class FriendsFragment extends Fragment {
                                     if (!mFollowers.contains(friend)) {
                                         mFollowers.add(friend);
                                         mAdapter.notifyItemInserted(mFollowers.size() - 1);
-                                        mSharedPreferences.edit().putInt(Constants.KEY_SHARED_PREF_COUNT_FOLLOWERS, mFollowers.size()).apply();
                                     }
 
                                     if (mFollowers.size() == mFollowingCount) {
@@ -368,7 +370,6 @@ public class FriendsFragment extends Fragment {
                                     if (index != -1) {
                                         mFollowers.remove(index);
                                         mAdapter.notifyItemRemoved(index);
-                                        mSharedPreferences.edit().putInt(Constants.KEY_SHARED_PREF_COUNT_FOLLOWERS, mFollowers.size()).apply();
                                     }
                                 }
 
@@ -430,6 +431,7 @@ public class FriendsFragment extends Fragment {
                             mFollowingLoaded = true;
                             hideProgress();
                         }
+                        mSharedPreferences.edit().remove(Constants.KEY_SHARED_PREF_DATA_FOLLOWING).apply();
                     }
 
                     if (mFollowingCount > 0) {
@@ -443,7 +445,6 @@ public class FriendsFragment extends Fragment {
                                         if (mFragmentBehavior == Constants.FRAGMENT_FOLLOWING) {
                                             mAdapter.notifyItemInserted(mFollowing.size() - 1);
                                         }
-                                        mSharedPreferences.edit().putInt(Constants.KEY_SHARED_PREF_COUNT_FOLLOWING, mFollowing.size()).apply();
                                     }
 
                                     if (mFollowing.size() == mFollowingCount) {
@@ -457,7 +458,10 @@ public class FriendsFragment extends Fragment {
                                             mFollowingLoaded = true;
                                             hideProgress();
                                         }
+
+                                        mSharedPreferences.edit().putString(Constants.KEY_SHARED_PREF_DATA_FOLLOWING, mGson.toJson(mFollowing)).apply();
                                     }
+                                    mNotificationManager.cancel(UniqueId.getFollowingId(friend));
                                 }
 
                                 @Override
@@ -469,17 +473,19 @@ public class FriendsFragment extends Fragment {
                                         if (mFragmentBehavior == Constants.FRAGMENT_FOLLOWING) {
                                             mAdapter.notifyItemRemoved(index);
                                         }
-                                        mSharedPreferences.edit().putInt(Constants.KEY_SHARED_PREF_COUNT_FOLLOWING, mFollowing.size()).apply();
                                     }
 
-                            /* If a friend is un-followed, it is now available to be followed. */
+                                    /* If a friend is un-followed, it is now available to be followed. */
                                     if (mFollowing.size() == mFollowingCount) {
                                         if (mFragmentBehavior == Constants.FRAGMENT_FIND_FRIENDS) {
                                             mUnfollowedFriends = new ArrayList<>(mAllFriends);
                                             mUnfollowedFriends.removeAll(mFollowing);
                                             mAdapter.notifyDataSetChanged();
                                         }
+
+                                        mSharedPreferences.edit().putString(Constants.KEY_SHARED_PREF_DATA_FOLLOWING, mGson.toJson(mFollowing)).apply();
                                     }
+                                    mNotificationManager.cancel(UniqueId.getFollowingId(friend));
                                 }
 
                                 @Override
@@ -529,9 +535,10 @@ public class FriendsFragment extends Fragment {
 
                     if (mRequestsCount == 0) {
                         if (!mRequestsLoaded) {
-                            mRequestsLoaded = true;
                             hideProgress();
+                            mRequestsLoaded = true;
                         }
+                        mSharedPreferences.edit().remove(Constants.KEY_SHARED_PREF_DATA_REQUESTS).apply();
                     }
 
                     if (mRequestsCount > 0) {
@@ -543,15 +550,17 @@ public class FriendsFragment extends Fragment {
                                     if (!mRequests.contains(friend)) {
                                         mRequests.add(friend);
                                         mAdapter.notifyItemInserted(mRequests.size() - 1);
-                                        mSharedPreferences.edit().putInt(Constants.KEY_SHARED_PREF_COUNT_REQUESTS, mRequests.size()).apply();
                                     }
 
                                     if (mRequests.size() == mRequestsCount) {
                                         if (!mRequestsLoaded) {
-                                            mRequestsLoaded = true;
                                             hideProgress();
+                                            mRequestsLoaded = true;
                                         }
+
+                                        mSharedPreferences.edit().putString(Constants.KEY_SHARED_PREF_DATA_REQUESTS, mGson.toJson(mRequests)).apply();
                                     }
+                                    mNotificationManager.cancel(UniqueId.getRequestId(friend));
                                 }
 
                                 @Override
@@ -561,8 +570,16 @@ public class FriendsFragment extends Fragment {
                                     if (index != -1) {
                                         mRequests.remove(index);
                                         mAdapter.notifyItemRemoved(index);
-                                        mSharedPreferences.edit().putInt(Constants.KEY_SHARED_PREF_COUNT_REQUESTS, mRequests.size()).apply();
                                     }
+
+                                    if (mRequests.size() == mRequestsCount) {
+                                        if (!mRequestsLoaded) {
+                                            hideProgress();
+                                            mRequestsLoaded = true;
+                                            mSharedPreferences.edit().putString(Constants.KEY_SHARED_PREF_DATA_REQUESTS, mGson.toJson(mRequests)).apply();
+                                        }
+                                    }
+                                    mNotificationManager.cancel(UniqueId.getRequestId(friend));
                                 }
 
                                 @Override
@@ -611,18 +628,36 @@ public class FriendsFragment extends Fragment {
          * notifications.
          */
 
-        if (mFollowersReference != null && mUserFollowersListener != null)
+        if (mFollowersReference != null && mUserFollowersListener != null) {
             mFollowersReference.removeEventListener(mUserFollowersListener);
-        if (mFollowingReference != null && mUserFollowingListener != null)
+            mUserFollowersListener = null;
+        }
+
+        if (mFollowingReference != null && mUserFollowingListener != null) {
             mFollowingReference.removeEventListener(mUserFollowingListener);
-        if (mRequestsReference != null && mUserRequestsListener != null)
+            mUserFollowingListener = null;
+        }
+
+        if (mRequestsReference != null && mUserRequestsListener != null) {
             mRequestsReference.removeEventListener(mUserRequestsListener);
-        if (mMetaFollowingReference != null && mUserFollowingCountListener != null)
+            mUserRequestsListener = null;
+        }
+
+        if (mMetaFollowingReference != null && mUserFollowingCountListener != null) {
             mMetaFollowingReference.removeEventListener(mUserFollowingCountListener);
-        if (mMetaFollowersReference != null && mUserFollowersCountListener != null)
+            mUserFollowingCountListener = null;
+        }
+
+        if (mMetaFollowersReference != null && mUserFollowersCountListener != null) {
             mMetaFollowersReference.removeEventListener(mUserFollowersCountListener);
-        if (mMetaRequestsReference != null && mUserRequestsCountListener != null)
+            mUserFollowersCountListener = null;
+        }
+
+        if (mMetaRequestsReference != null && mUserRequestsCountListener != null) {
             mMetaRequestsReference.removeEventListener(mUserRequestsCountListener);
+            mUserRequestsCountListener = null;
+        }
+
     }
 
     private void startDataSync() {
@@ -631,21 +666,29 @@ public class FriendsFragment extends Fragment {
         if (mFragmentBehavior == Constants.FRAGMENT_FIND_FRIENDS) {
             if (!mFollowingLoaded) {
                 showProgress();
+            } else {
+                hideProgress();
             }
             getFollowing();  // Friends which the user is already following shouldn't be displayed.
         } else if (mFragmentBehavior == Constants.FRAGMENT_FOLLOWERS) {
             if (!mFollowersLoaded) {
                 showProgress();
+            } else {
+                hideProgress();
             }
             getFollowers();
         } else if (mFragmentBehavior == Constants.FRAGMENT_FOLLOWING) {
             if (!mFollowingLoaded) {
                 showProgress();
+            } else {
+                hideProgress();
             }
             getFollowing();
         } else if (mFragmentBehavior == Constants.FRAGMENT_REQUESTS) {
             if (!mRequestsLoaded) {
                 showProgress();
+            } else {
+                hideProgress();
             }
             getRequests();
         }
@@ -653,8 +696,8 @@ public class FriendsFragment extends Fragment {
 
 
     private void isConnected() {
-        mNetworkInfo = mConnectivityManager.getActiveNetworkInfo();
-        if (mNetworkInfo != null && mNetworkInfo.isConnected()) {
+        NetworkInfo networkInfo = mConnectivityManager.getActiveNetworkInfo();
+        if (networkInfo != null && networkInfo.isConnected()) {
             mIsConnected = true;
             if (mNoConnectionSnackbar != null && mNoConnectionSnackbar.isShown()) {
                 mNoConnectionSnackbar.dismiss();

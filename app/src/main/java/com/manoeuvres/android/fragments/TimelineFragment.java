@@ -1,6 +1,7 @@
 package com.manoeuvres.android.fragments;
 
 
+import android.app.NotificationManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -21,6 +22,7 @@ import android.support.v4.widget.ContentLoadingProgressBar;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
@@ -41,7 +43,6 @@ import com.manoeuvres.android.models.Log;
 import com.manoeuvres.android.models.Move;
 import com.manoeuvres.android.util.Constants;
 import com.manoeuvres.android.util.UniqueId;
-
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -56,12 +57,9 @@ public class TimelineFragment extends Fragment {
 
     private RecyclerView mRecyclerView;
     private RecyclerView.Adapter mAdapter;
-    private RecyclerView.LayoutManager mLayoutManager;
 
     private DatabaseReference mCurrentUserLogsReference;
     private DatabaseReference mCurrentUserMovesReference;
-    private DatabaseReference mRootReference;
-    private DatabaseReference mMetaReference;
     private DatabaseReference mCurrentUserMovesCountReference;
     private DatabaseReference mCurrentUserLogsCountReference;
 
@@ -69,8 +67,6 @@ public class TimelineFragment extends Fragment {
     private ChildEventListener mMovesListener;
     private ValueEventListener mMovesCountListener;
     private ValueEventListener mLogsCountListener;
-
-    private FirebaseUser mUser;
 
     /*
      * This fragment can display the logs of either the user or a friend of the user.
@@ -91,7 +87,6 @@ public class TimelineFragment extends Fragment {
 
     private MainActivity mParentActivity;
     private FloatingActionButton mFab;
-    private NavigationView mNavigationView;
     private NavigationMenu mNavigationMenu;
 
     private Gson mGson;
@@ -105,10 +100,11 @@ public class TimelineFragment extends Fragment {
     private boolean mIsFriend;
 
     private ConnectivityManager mConnectivityManager;
-    private NetworkInfo mNetworkInfo;
     private boolean mIsConnected;
     private BroadcastReceiver mNetworkReceiver;
     private Snackbar mNoConnectionSnackbar;
+
+    private NotificationManager mNotificationManager;
 
     public TimelineFragment() {
         // Required empty public constructor
@@ -129,7 +125,7 @@ public class TimelineFragment extends Fragment {
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        mUser = FirebaseAuth.getInstance().getCurrentUser();
+        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
 
         mParentActivity = (MainActivity) getActivity();
 
@@ -137,15 +133,13 @@ public class TimelineFragment extends Fragment {
         if (bundle != null) {
             mCurrentUserId = bundle.getString(Constants.KEY_ARGUMENTS_FIREBASE_ID_USER_FRAGMENT_TIMELINE_);
             mCurrentUserName = bundle.getString(Constants.KEY_ARGUMENTS_USER_NAME_FRAGMENT_TIMELINE);
-            if (!mCurrentUserId.equals(mUser.getUid())) {
+            if (user != null && !mCurrentUserId.equals(user.getUid())) {
                 mIsFriend = true;
             }
         } else {
-            try {
-                mCurrentUserId = mUser.getUid();
-                mCurrentUserName = mUser.getDisplayName();
-            } catch (NullPointerException e) {
-                e.printStackTrace();
+            if (user != null) {
+                mCurrentUserId = user.getUid();
+                mCurrentUserName = user.getDisplayName();
             }
         }
 
@@ -172,14 +166,16 @@ public class TimelineFragment extends Fragment {
             mMoves = new HashMap<>();
         }
 
-        mRootReference = FirebaseDatabase.getInstance().getReference();
-        mCurrentUserLogsReference = mRootReference.child(Constants.FIREBASE_DATABASE_REFERENCE_LOGS).child(mCurrentUserId);
-        mCurrentUserMovesReference = mRootReference.child(Constants.FIREBASE_DATABASE_REFERENCE_MOVES).child(mCurrentUserId);
-        mMetaReference = mRootReference.child(Constants.FIREBASE_DATABASE_REFERENCE_META);
-        mCurrentUserMovesCountReference = mMetaReference.child(Constants.FIREBASE_DATABASE_REFERENCE_META_MOVES).child(mCurrentUserId).child(Constants.FIREBASE_DATABASE_REFERENCE_META_MOVES_COUNT);
-        mCurrentUserLogsCountReference = mMetaReference.child(Constants.FIREBASE_DATABASE_REFERENCE_META_LOGS).child(mCurrentUserId).child(Constants.FIREBASE_DATABASE_REFERENCE_META_LOGS_COUNT);
+        DatabaseReference rootReference = FirebaseDatabase.getInstance().getReference();
+        mCurrentUserLogsReference = rootReference.child(Constants.FIREBASE_DATABASE_REFERENCE_LOGS).child(mCurrentUserId);
+        mCurrentUserMovesReference = rootReference.child(Constants.FIREBASE_DATABASE_REFERENCE_MOVES).child(mCurrentUserId);
+        DatabaseReference metaReference = rootReference.child(Constants.FIREBASE_DATABASE_REFERENCE_META);
+        mCurrentUserMovesCountReference = metaReference.child(Constants.FIREBASE_DATABASE_REFERENCE_META_MOVES).child(mCurrentUserId).child(Constants.FIREBASE_DATABASE_REFERENCE_META_MOVES_COUNT);
+        mCurrentUserLogsCountReference = metaReference.child(Constants.FIREBASE_DATABASE_REFERENCE_META_LOGS).child(mCurrentUserId).child(Constants.FIREBASE_DATABASE_REFERENCE_META_LOGS_COUNT);
 
         mConnectivityManager = (ConnectivityManager) mParentActivity.getSystemService(CONNECTIVITY_SERVICE);
+
+        mNotificationManager = (NotificationManager) mParentActivity.getSystemService(Context.NOTIFICATION_SERVICE);
     }
 
     @Override
@@ -192,8 +188,8 @@ public class TimelineFragment extends Fragment {
 
         mRecyclerView.setHasFixedSize(true);
 
-        mLayoutManager = new LinearLayoutManager(getContext());
-        mRecyclerView.setLayoutManager(mLayoutManager);
+        RecyclerView.LayoutManager layoutManager = new LinearLayoutManager(getContext());
+        mRecyclerView.setLayoutManager(layoutManager);
 
         mAdapter = new TimelineAdapter();
         mRecyclerView.setAdapter(mAdapter);
@@ -203,8 +199,8 @@ public class TimelineFragment extends Fragment {
         mProgressBar = (ContentLoadingProgressBar) rootView.findViewById(R.id.progress_bar_timeline);
         mLoadingTextView = (TextView) rootView.findViewById(R.id.textView_loading_logs);
 
-        mNavigationView = (NavigationView) mParentActivity.findViewById(R.id.nav_view);
-        mNavigationMenu = (NavigationMenu) mNavigationView.getMenu();
+        NavigationView navigationView = (NavigationView) mParentActivity.findViewById(R.id.nav_view);
+        mNavigationMenu = (NavigationMenu) navigationView.getMenu();
 
         Resources resources = getResources();
         String formatString = resources.getString(R.string.textview_loading_logs);
@@ -224,11 +220,14 @@ public class TimelineFragment extends Fragment {
         super.onStart();
 
         mParentActivity.setTitle(mCurrentUserName);
+        MenuItem menuItem;
         if (!mIsFriend) {
-            mNavigationMenu.findItem(R.id.nav_timeline).setChecked(true);
+            menuItem = mNavigationMenu.findItem(R.id.nav_timeline);
         } else {
-            mNavigationMenu.findItem(UniqueId.getMenuId(new Friend(mCurrentUserId))).setChecked(true);
+            menuItem = mNavigationMenu.findItem(UniqueId.getMenuId(new Friend(mCurrentUserId)));
         }
+        if (menuItem != null)
+            menuItem.setChecked(true);
 
         checkNetworkAndSyncData();
 
@@ -254,6 +253,7 @@ public class TimelineFragment extends Fragment {
 
                     if (count == 0) {
                         hideProgress();
+                        mSharedPreferences.edit().remove(UniqueId.getLatestLogKey(mCurrentUserId)).apply();
                     } else {
                         if (mLogsListener == null) {
                             mLogsListener = mCurrentUserLogsReference.limitToLast(Constants.LIMIT_LOG_COUNT).addChildEventListener(new ChildEventListener() {
@@ -269,7 +269,7 @@ public class TimelineFragment extends Fragment {
                                         mLogs.add(0, newLog);
                                         mAdapter.notifyItemInserted(0);
                                         mRecyclerView.scrollToPosition(0);
-                                        mSharedPreferences.edit().putLong(UniqueId.getLatestLogKey(mCurrentUserId), newLog.getStartTime()).apply();
+                                        mSharedPreferences.edit().putString(UniqueId.getLatestLogKey(mCurrentUserId), mGson.toJson(newLog)).apply();
                                     } else {    // If due to any bug, a previous log wasn't updated, update it now.
                                         Log oldLog = mLogs.get(index);
                                         if (oldLog.getEndTime() == 0 && newLog.getEndTime() != 0) {
@@ -284,6 +284,7 @@ public class TimelineFragment extends Fragment {
                                     }
                                     if (mLogs.size() == limit) {
                                         hideProgress();
+                                        mNotificationManager.cancel(UniqueId.getLogId(new Friend(mCurrentUserId)));
                                     }
                                 }
 
@@ -294,6 +295,8 @@ public class TimelineFragment extends Fragment {
                                     if ((oldLog.getMoveId().equals(updatedLog.getMoveId())) && (oldLog.getStartTime() == updatedLog.getStartTime())) {
                                         oldLog.setEndTime(updatedLog.getEndTime());
                                         mAdapter.notifyItemChanged(0);
+                                        mSharedPreferences.edit().putString(UniqueId.getLatestLogKey(mCurrentUserId), mGson.toJson(updatedLog)).apply();
+                                        mNotificationManager.cancel(UniqueId.getLogId(new Friend(mCurrentUserId)));
                                     }
                                 }
 
@@ -405,8 +408,8 @@ public class TimelineFragment extends Fragment {
     }
 
     private void isConnected() {
-        mNetworkInfo = mConnectivityManager.getActiveNetworkInfo();
-        if (mNetworkInfo != null && mNetworkInfo.isConnected()) {
+        NetworkInfo networkInfo = mConnectivityManager.getActiveNetworkInfo();
+        if (networkInfo != null && networkInfo.isConnected()) {
             mIsConnected = true;
             if (mNoConnectionSnackbar != null && mNoConnectionSnackbar.isShown()) {
                 mNoConnectionSnackbar.dismiss();
@@ -419,12 +422,24 @@ public class TimelineFragment extends Fragment {
     }
 
     private void stopDataSync() {
-        if (mCurrentUserLogsReference != null && mLogsListener != null)
+        if (mCurrentUserLogsReference != null && mLogsListener != null) {
             mCurrentUserLogsReference.removeEventListener(mLogsListener);
-        if (mCurrentUserMovesReference != null && mMovesListener != null)
+            mLogsListener = null;
+        }
+
+        if (mCurrentUserLogsCountReference != null && mLogsCountListener != null) {
+            mCurrentUserLogsCountReference.removeEventListener(mLogsCountListener);
+            mLogsCountListener = null;
+        }
+
+        if (mCurrentUserMovesReference != null && mMovesListener != null) {
             mCurrentUserMovesReference.removeEventListener(mMovesListener);
+            mMovesListener = null;
+        }
+
         if (mCurrentUserMovesCountReference != null && mMovesCountListener != null) {
             mCurrentUserMovesCountReference.removeEventListener(mMovesCountListener);
+            mMovesCountListener = null;
         }
     }
 
