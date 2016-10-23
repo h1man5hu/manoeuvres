@@ -45,6 +45,7 @@ import com.manoeuvres.android.models.Friend;
 import com.manoeuvres.android.models.Log;
 import com.manoeuvres.android.models.Move;
 import com.manoeuvres.android.util.Constants;
+import com.manoeuvres.android.util.TextHelper;
 import com.manoeuvres.android.util.UniqueId;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
@@ -512,11 +513,11 @@ public class TimelineFragment extends Fragment {
             if (move != null) {
                 if (log.getEndTime() != 0) {
                     holder.mMoveTitle.setText(move.getPast());
-                    holder.mMoveSubtitle.setText(String.format(getResources().getString(R.string.log_sub_title_text_past), log.getStartTime(), log.getEndTime()));
+                    holder.mMoveSubtitle.setText(String.format(getString(R.string.log_sub_title_text_past), TextHelper.getDurationText(log.getStartTime(), log.getEndTime())));
                 }
                 else {
                     holder.mMoveTitle.setText(move.getPresent());
-                    holder.mMoveSubtitle.setText(String.format(getResources().getString(R.string.log_sub_title_text_present), log.getStartTime()));
+                    holder.mMoveSubtitle.setText(String.format(getString(R.string.log_sub_title_text_present), TextHelper.getDurationText(log.getStartTime(), log.getEndTime())));
                 }
             }
         }

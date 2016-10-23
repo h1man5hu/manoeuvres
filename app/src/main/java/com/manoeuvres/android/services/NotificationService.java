@@ -35,6 +35,7 @@ import com.manoeuvres.android.activities.MainActivity;
 import com.manoeuvres.android.models.Friend;
 import com.manoeuvres.android.models.Log;
 import com.manoeuvres.android.util.Constants;
+import com.manoeuvres.android.util.TextHelper;
 import com.manoeuvres.android.util.UniqueId;
 
 import org.json.JSONArray;
@@ -529,7 +530,7 @@ public class NotificationService extends Service {
                     reference.child(Constants.FIREBASE_DATABASE_REFERENCE_MOVES_PRESENT).addListenerForSingleValueEvent(new ValueEventListener() {
                         @Override
                         public void onDataChange(DataSnapshot dataSnapshot) {
-                            builder.setContentText(getString(R.string.notification_text_log_present) + dataSnapshot.getValue().toString());
+                            builder.setContentText(getString(R.string.notification_text_log_present) + dataSnapshot.getValue().toString().toLowerCase() + ".");
                             mNotificationManager.notify(UniqueId.getLogId(friend), builder.build());
                         }
 
@@ -542,7 +543,9 @@ public class NotificationService extends Service {
                     reference.child(Constants.FIREBASE_DATABASE_REFERENCE_MOVES_PAST).addListenerForSingleValueEvent(new ValueEventListener() {
                         @Override
                         public void onDataChange(DataSnapshot dataSnapshot) {
-                            builder.setContentText(getString(R.string.notification_text_log_past) + dataSnapshot.getValue().toString());
+                            builder.setContentText(getString(R.string.notification_text_log_past) + dataSnapshot.getValue().toString().toLowerCase() + " "
+                                    + String.format(getString(R.string.log_sub_title_text_past), TextHelper.getDurationText(log.getStartTime(), log.getEndTime())).trim()
+                                    + ".");
                             mNotificationManager.notify(UniqueId.getLogId(friend), builder.build());
                         }
 
