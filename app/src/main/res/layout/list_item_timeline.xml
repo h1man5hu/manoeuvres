@@ -17,7 +17,7 @@
         android:layout_marginStart="16dp"
         android:layout_marginTop="20dp"
         android:fontFamily="sans-serif"
-        android:textColor="@android:color/primary_text_light"
+        android:textColor="@color/colorPrimaryText"
         android:textSize="@dimen/text_primary_size_list_item"
 
         app:layout_constraintLeft_toLeftOf="parent"
@@ -31,7 +31,7 @@
         android:layout_marginBottom="20dp"
 
         android:layout_marginTop="4dp"
-        android:textColor="@android:color/secondary_text_light"
+        android:textColor="@color/colorSecondaryText"
         android:textSize="@dimen/text_secondary_size_list_item"
 
         android:textStyle="normal|italic"
