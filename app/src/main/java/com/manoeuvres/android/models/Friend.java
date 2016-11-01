@@ -20,6 +20,11 @@ public class Friend {
         mName = name;
     }
 
+    public Friend(Friend friend) {
+        mFacebookId = friend.getFacebookId();
+        mName = friend.getName();
+    }
+
     public long getFacebookId() {
         return mFacebookId;
     }
@@ -50,11 +55,7 @@ public class Friend {
             return false;
         }
         Friend friend = (Friend) obj;
-        if (mFirebaseId.equals(friend.getFirebaseId())) {
-            return true;
-        } else {
-            return false;
-        }
+        return mFirebaseId.equals(friend.getFirebaseId());
     }
 
     @Override

@@ -18,6 +18,10 @@ public class Move {
         mPast = past;
     }
 
+    public Move(Move move) {
+        new Move(move.getName(), move.getPresent(), move.getPast());
+    }
+
     public String getName() {
         return mName;
     }
@@ -48,15 +52,16 @@ public class Move {
             return false;
         }
         Move move = (Move) obj;
-        if (mName.equals(move.getName())) {
-            return true;
-        } else {
-            return false;
-        }
+        return mName.equals(move.getName());
     }
 
     @Override
     public int hashCode() {
         return mName.hashCode();
+    }
+
+    @Override
+    public String toString() {
+        return mName;
     }
 }

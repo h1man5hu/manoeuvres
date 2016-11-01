@@ -1,4 +1,4 @@
-package com.manoeuvres.android.activities;
+package com.manoeuvres.android.views.activities;
 
 import android.content.Intent;
 import android.content.res.Resources;

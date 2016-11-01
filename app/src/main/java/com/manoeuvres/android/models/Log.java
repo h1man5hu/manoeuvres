@@ -17,6 +17,12 @@ public class Log {
         mEndTime = 0;
     }
 
+    public Log(Log log) {
+        mMoveId = log.getMoveId();
+        mStartTime = log.getStartTime();
+        mEndTime = log.getEndTime();
+    }
+
     public String getMoveId() {
         return mMoveId;
     }
@@ -47,11 +53,7 @@ public class Log {
             return false;
         }
         Log log = (Log) obj;
-        if (mMoveId.equals(log.getMoveId()) && mStartTime == log.getStartTime()) {
-            return true;
-        } else {
-            return false;
-        }
+        return mMoveId.equals(log.getMoveId()) && mStartTime == log.getStartTime();
     }
 
     @Override

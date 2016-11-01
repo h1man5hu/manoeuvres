@@ -4,6 +4,7 @@
 
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.VIBRATE"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
 
     <application
         android:allowBackup="true"
@@ -12,7 +13,7 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
         <activity
-            android:name=".activities.LaunchScreenActivity"
+            android:name=".views.activities.LaunchScreenActivity"
             android:theme="@style/LaunchScreenTheme">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
@@ -25,10 +26,10 @@
             android:name="com.facebook.sdk.ApplicationId"
             android:value="@string/facebook_app_id"/>
 
-        <activity android:name=".activities.LoginActivity">
+        <activity android:name=".views.activities.LoginActivity">
         </activity>
         <activity
-            android:name=".activities.MainActivity"
+            android:name=".views.activities.MainActivity"
             android:label="@string/title_activity_main"
             android:launchMode="singleTop"
             android:theme="@style/AppTheme.NoActionBar">
@@ -37,6 +38,7 @@
         <service android:name=".services.NotificationService">
 
         </service>
+
     </application>
 
 </manifest>

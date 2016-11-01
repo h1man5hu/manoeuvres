@@ -3,7 +3,7 @@
                                              xmlns:tools="http://schemas.android.com/tools"
                                              android:layout_width="match_parent"
                                              android:layout_height="match_parent"
-                                             tools:context="com.manoeuvres.android.fragments.TimelineFragment">
+                                             tools:context=".views.fragments.TimelineFragment">
 
     <TextView
         android:id="@+id/textView_loading_logs"
@@ -17,13 +17,14 @@
         android:layout_marginTop="16dp"
         android:text="@string/textview_loading_logs"
         android:textSize="@dimen/text_size_loading"
+        android:visibility="invisible"
         app:layout_constraintBottom_toBottomOf="@+id/recycler_view_timeline"
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintRight_toRightOf="@+id/recycler_view_timeline"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintVertical_bias="0.45"/>
 
-    <android.support.v4.widget.ContentLoadingProgressBar
+    <ProgressBar
         android:id="@+id/progress_bar_timeline"
         style="@style/Widget.AppCompat.ProgressBar.Horizontal"
         android:layout_width="@dimen/width_progress_bar"
@@ -31,6 +32,7 @@
         android:layout_marginTop="16dp"
         android:indeterminate="true"
         android:indeterminateBehavior="cycle"
+        android:visibility="invisible"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintLeft_toLeftOf="@+id/recycler_view_timeline"
         app:layout_constraintRight_toRightOf="@+id/recycler_view_timeline"

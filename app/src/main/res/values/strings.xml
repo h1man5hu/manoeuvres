@@ -67,4 +67,14 @@
     <string name="notification_text_log_past">"I "</string>
     <string name="image_description_profile_picture">Your Facebook profile picture.</string>
 
+    <!-- TODO: Remove or change this placeholder text -->
+    <string name="hello_blank_fragment">Hello blank fragment</string>
+    <string name="duration_one_day">"1 day, "</string>
+    <string name="duration_days">" days, "</string>
+    <string name="duration_one_hour">"1 hour and "</string>
+    <string name="duration_hours">" hours and "</string>
+    <string name="duration_less_than_a_minute">less than a minute</string>
+    <string name="duration_minute">a minute</string>
+    <string name="duration_minutes">" minutes "</string>
+
 </resources>

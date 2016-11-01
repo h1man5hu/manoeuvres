@@ -9,11 +9,11 @@ public class Constants {
     public static final int FRAGMENT_REQUESTS = 104;
 
     public static final String TAG_LOG_ACTIVITY_MAIN = "MainActivityLog";
-    public static final String TAG_LOG_FRAGMENT_FRIENDS = "FriendsFragmentLog";
     public static final String TAG_LOG_FRAGMENT_TIMELINE = "TimelineFragmentLog";
     public static final String TAG_LOG_ACTIVITY_LOGIN = "LoginActivityLog";
     public static final String TAG_LOG_ACTIVITY_LAUNCH_SCREEN = "LaunchScreenActivityLog";
     public static final String TAG_LOG_SERVICE_NOTIFICATION = "NotificationServiceLog";
+    public static final String TAG_LOG_NETWORK_MONITOR = "NetworkMonitorLog";
 
     public static final String TAG_FRAGMENT_TIMELINE = "timelineFragment";
     public static final String TAG_FRAGMENT_FOLLOWING = "followingFragment";
@@ -46,10 +46,12 @@ public class Constants {
     public static final String FIREBASE_DATABASE_REFERENCE_META_REQUESTS_COUNT = "count";
     public static final String FIREBASE_DATABASE_REFERENCE_META_MOVES = "moves";
     public static final String FIREBASE_DATABASE_REFERENCE_META_MOVES_COUNT = "count";
+    public static final String FIREBASE_DATABASE_REFERENCE_SEEN = "seen";
+    public static final String FIREBASE_DATABASE_REFERENCE_SEEN_REQUESTS = "requests";
+    public static final String FIREBASE_DATABASE_REFERENCE_SEEN_FOLLOWING = "following";
 
     public static final String KEY_ARGUMENTS_FIREBASE_ID_USER_FRAGMENT_TIMELINE_ = "firebaseUserId";
     public static final String KEY_ARGUMENTS_USER_NAME_FRAGMENT_TIMELINE = "username";
-    public static final String KEY_ARGUMENTS_FRAGMENT_BEHAVIOR_FRIENDS = "FRAGMENT_BEHAVIOR";
 
     public static final String FACEBOOK_FIELD_GRAPH_REQUEST_FIELDS = "fields";
     public static final String FACEBOOK_FIELD_GRAPH_REQUEST_DATA = "data";
@@ -61,14 +63,11 @@ public class Constants {
     public static final String FACEBOOK_PERMISSION_PUBLIC_PROFILE = "public_profile";
     public static final String FACEBOOK_PERMISSION_USER_FRIENDS = "user_friends";
 
-    public static final String KEY_SHARED_PREF_DATA_FOLLOWERS = "followersData";
-    public static final String KEY_SHARED_PREF_DATA_REQUESTS = "requestsData";
     public static final String KEY_SHARED_PREF_DATA_FOLLOWING = "followingData";
     public static final String KEY_SHARED_PREF_DATA_FRIENDS = "friendsData";
     public static final String KEY_SHARED_PREF_IS_MOVE_IN_PROGRESS = "isMoveInProgress";
+    public static final String KEY_SHARED_PREF_MENU_ITEMS_FOLLOWING = "menuItemsFollowing";
 
-    public static final String KEY_EXTRA_FRAGMENT_REQUESTS = "requestsFragmentKey";
-    public static final String KEY_EXTRA_FRAGMENT_TIMELINE = "timelineFragmentKey";
     public static final String KEY_EXTRA_FRAGMENT_TIMELINE_FRIEND_ID = "friendIdKey";
 
     public static final String NOTIFICATION_TYPE_REQUEST = "requestNotification";
@@ -76,6 +75,17 @@ public class Constants {
     public static final String NOTIFICATION_TYPE_LOG = "logNotification";
 
     public static final String KEY_EXTRA_NOTIFICATION_SERVICE = "com.manoeuvres.android.services.NotificationService";
+
+    public static final String CALLBACK_INITIAL_LOADING = "initialLoad";
+    public static final String CALLBACK_START_LOADING = "startLoad";
+    public static final String CALLBACK_COMPLETE_LOADING = "completeLoad";
+    public static final String CALLBACK_ADD_DATA = "addData";
+    public static final String CALLBACK_REMOVE_DATA = "removeData";
+    public static final String CALLBACK_CHANGE_DATA = "changeData";
+    public static final String CALLBACK_NETWORK_CONNECTED = "networkConnected";
+    public static final String CALLBACK_NETWORK_DISCONNECTED = "networkDisconnected";
+
+    public static final String COMMAND_NETWORK_CHECK = "/system/bin/ping -c 1 8.8.8.8";
 
     public static final int LIMIT_LOG_COUNT = 20;
 }

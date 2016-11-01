@@ -9,7 +9,7 @@
     android:paddingLeft="@dimen/activity_horizontal_margin"
     android:paddingRight="@dimen/activity_horizontal_margin"
     android:paddingTop="@dimen/activity_vertical_margin"
-    tools:context="com.manoeuvres.android.activities.LoginActivity">
+    tools:context=".views.activities.LoginActivity">
 
     <com.facebook.login.widget.LoginButton
         android:id="@+id/button_login_facebook"
