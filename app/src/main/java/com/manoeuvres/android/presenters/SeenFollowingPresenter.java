@@ -17,11 +17,11 @@ public class SeenFollowingPresenter {
 
     private List<Friend> mSeenFollowing;
 
-    private List<SeenFollowingListener> mObservers;
+    private SeenFollowingListener[] mObservers;
 
     private SeenFollowingPresenter() {
-        mSeenFollowing = new ArrayList<>();
-        mObservers = new ArrayList<>();
+        mSeenFollowing = new ArrayList<>(Constants.INITIAL_COLLECTION_CAPACITY_SEEN_FOLLOWING);
+        mObservers = new SeenFollowingListener[Constants.MAX_SEEN_FOLLOWING_LISTENERS_COUNT];
     }
 
     public static SeenFollowingPresenter getInstance() {
@@ -30,19 +30,39 @@ public class SeenFollowingPresenter {
     }
 
     public SeenFollowingPresenter attach(Object component) {
-        SeenFollowingListener observer = (SeenFollowingListener) component;
-        if (!mObservers.contains(observer)) mObservers.add(observer);
+        SeenFollowingListener listener = (SeenFollowingListener) component;
 
+        /* If the observer is already attached, return. */
+        for (SeenFollowingListener observer : mObservers)
+            if (observer != null && observer.equals(observer)) return ourInstance;
+
+        /* Insert the observer at the first available slot. */
+        for (int i = 0; i < mObservers.length; i++) {
+            if (mObservers[i] == null) {
+                mObservers[i] = listener;
+                return ourInstance;
+            }
+        }
         return ourInstance;
     }
 
     public SeenFollowingPresenter detach(Object component) {
-        SeenFollowingListener observer = (SeenFollowingListener) component;
-        if (mObservers.contains(observer)) mObservers.remove(observer);
-        if (mObservers.size() == 0) {
+        SeenFollowingListener listener = (SeenFollowingListener) component;
+
+        /* If there are no observers, free the memory for garbage collection. */
+        if (mObservers.length == 0) {
             stopSync();
             ourInstance = null;
+            return null;
         }
+
+        for (int i = 0; i < mObservers.length; i++) {
+            if (mObservers[i] != null && mObservers[i].equals(listener)) {
+                mObservers[i] = null;
+                return ourInstance;
+            }
+        }
+
         return ourInstance;
     }
 
@@ -81,10 +101,12 @@ public class SeenFollowingPresenter {
 
     private void notifyObservers(String event) {
         for (SeenFollowingListener observer : mObservers) {
-            switch (event) {
-                case Constants.CALLBACK_COMPLETE_LOADING:
-                    observer.onSeenFollowingLoaded();
-                    break;
+            if (observer != null) {
+                switch (event) {
+                    case Constants.CALLBACK_COMPLETE_LOADING:
+                        observer.onSeenFollowingLoaded();
+                        break;
+                }
             }
         }
     }

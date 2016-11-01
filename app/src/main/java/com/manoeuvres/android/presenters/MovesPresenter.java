@@ -37,7 +37,7 @@ public class MovesPresenter {
     private Map<String, ValueEventListener> mCountListeners;
     private Map<String, ChildEventListener> mDataListeners;
 
-    private Map<String, List<MovesListener>> mObservers;
+    private Map<String, MovesListener[]> mObservers;
 
     private SharedPreferences mSharedPreferences;
     private Gson mGson;
@@ -48,13 +48,14 @@ public class MovesPresenter {
         mSharedPreferences = PreferenceManager.getDefaultSharedPreferences(applicationContext);
         mGson = new Gson();
 
-        mCountReferences = new HashMap<>();
-        mCountListeners = new HashMap<>();
-        mDataReferences = new HashMap<>();
-        mDataListeners = new HashMap<>();
-        mObservers = new HashMap<>();
-        mMoves = new HashMap<>();
-        mIsLoaded = new HashMap<>();
+        int capacity = Constants.INITIAL_COLLECTION_CAPACITY_FOLLOWING + 1;
+        mCountReferences = new HashMap<>(capacity);
+        mCountListeners = new HashMap<>(capacity);
+        mDataReferences = new HashMap<>(capacity);
+        mDataListeners = new HashMap<>(capacity);
+        mObservers = new HashMap<>(capacity);
+        mMoves = new HashMap<>(capacity);
+        mIsLoaded = new HashMap<>(capacity);
     }
 
     public static MovesPresenter getInstance(Context applicationContext) {
@@ -64,12 +65,23 @@ public class MovesPresenter {
 
     public MovesPresenter attach(Object component, String userId) {
         MovesListener listener = (MovesListener) component;
-        List<MovesListener> listeners = mObservers.get(userId);
+        MovesListener[] listeners = mObservers.get(userId);
         if (listeners != null) {
-            listeners.add(listener);
+
+            /* If the observer is already attached, return. */
+            for (MovesListener observer : listeners)
+                if (observer != null && observer.equals(listener)) return ourInstance;
+
+            /* Insert the observer at the first available slot. */
+            for (int i = 0; i < listeners.length; i++) {
+                if (listeners[i] == null) {
+                    listeners[i] = listener;
+                    return ourInstance;
+                }
+            }
         } else {
-            listeners = new ArrayList<>();
-            listeners.add(listener);
+            listeners = new MovesListener[Constants.MAX_MOVES_LISTENERS_COUNT];
+            listeners[0] = listener;
             mObservers.put(userId, listeners);
         }
         return ourInstance;
@@ -77,21 +89,28 @@ public class MovesPresenter {
 
     public MovesPresenter detach(Object component, String userId) {
         MovesListener listener = (MovesListener) component;
-        List<MovesListener> listeners = mObservers.get(userId);
-        if (listeners != null && listeners.contains(listener)) {
-            listeners.remove(listener);
+        MovesListener[] listeners = mObservers.get(userId);
+        if (listeners != null) {
 
-            if (listeners.size() == 0) {
-                mObservers.remove(userId);
-                stopSync(userId);
+            for (int i = 0; i < listeners.length; i++)
+                if (listeners[i] != null && listeners[i].equals(listener)) listeners[i] = null;
 
-                if (mObservers.size() == 0) ourInstance = null;
-                else {
-                    for (List<MovesListener> listenerList : mObservers.values()) {
-                        if (listenerList != null && listenerList.size() > 0) return ourInstance;
+            /* If there is at least one observer attached, return. */
+            for (int i = 0; i < listeners.length; i++)
+                if (listeners[i] != null) return ourInstance;
+
+            mObservers.remove(userId);
+            stopSync(userId);
+
+            /* If there are no observers, free the memory for garbage collection. */
+            if (mObservers.size() == 0) ourInstance = null;
+            else {
+                for (MovesListener[] listenerArray : mObservers.values()) {
+                    for (MovesListener observer : listenerArray) {
+                        if (observer != null) return ourInstance;
                     }
-                    ourInstance = null;
                 }
+                ourInstance = null;
             }
         }
         return ourInstance;
@@ -334,29 +353,31 @@ public class MovesPresenter {
     }
 
     private void notifyObservers(String userId, String event, String key, Move move) {
-        List<MovesListener> listeners = mObservers.get(userId);
+        MovesListener[] listeners = mObservers.get(userId);
         if (listeners != null) {
             for (MovesListener listener : listeners) {
-                switch (event) {
-                    case Constants.CALLBACK_START_LOADING:
-                        listener.onStartMovesLoading(userId);
-                        break;
-                    case Constants.CALLBACK_INITIAL_LOADING:
-                        listener.onMovesInitialization(userId);
-                        break;
-                    case Constants.CALLBACK_ADD_DATA:
-                        listener.onMoveAdded(userId, key, move);
-                        break;
-                    case Constants.CALLBACK_CHANGE_DATA:
-                        listener.onMoveChanged(userId, key, move);
-                        break;
-                    case Constants.CALLBACK_REMOVE_DATA:
-                        listener.onMoveRemoved(userId, key, move);
-                        break;
-                    case Constants.CALLBACK_COMPLETE_LOADING:
-                        mIsLoaded.put(userId, true);
-                        listener.onCompleteMovesLoading(userId);
-                        break;
+                if (listener != null) {
+                    switch (event) {
+                        case Constants.CALLBACK_START_LOADING:
+                            listener.onStartMovesLoading(userId);
+                            break;
+                        case Constants.CALLBACK_INITIAL_LOADING:
+                            listener.onMovesInitialization(userId);
+                            break;
+                        case Constants.CALLBACK_ADD_DATA:
+                            listener.onMoveAdded(userId, key, move);
+                            break;
+                        case Constants.CALLBACK_CHANGE_DATA:
+                            listener.onMoveChanged(userId, key, move);
+                            break;
+                        case Constants.CALLBACK_REMOVE_DATA:
+                            listener.onMoveRemoved(userId, key, move);
+                            break;
+                        case Constants.CALLBACK_COMPLETE_LOADING:
+                            mIsLoaded.put(userId, true);
+                            listener.onCompleteMovesLoading(userId);
+                            break;
+                    }
                 }
             }
         }

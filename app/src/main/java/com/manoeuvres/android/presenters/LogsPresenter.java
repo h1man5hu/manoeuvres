@@ -33,7 +33,7 @@ public class LogsPresenter {
     private Map<String, ValueEventListener> mCountListeners;
     private Map<String, ChildEventListener> mDataListeners;
 
-    private Map<String, List<LogsListener>> mObservers;
+    private Map<String, LogsListener[]> mObservers;
 
     private SharedPreferences mSharedPreferences;
     private Gson mGson;
@@ -44,13 +44,14 @@ public class LogsPresenter {
         mSharedPreferences = PreferenceManager.getDefaultSharedPreferences(applicationContext);
         mGson = new Gson();
 
-        mLogs = new HashMap<>();
-        mCountReferences = new HashMap<>();
-        mDataReferences = new HashMap<>();
-        mCountListeners = new HashMap<>();
-        mDataListeners = new HashMap<>();
-        mObservers = new HashMap<>();
-        mIsLoaded = new HashMap<>();
+        int capacity = Constants.INITIAL_COLLECTION_CAPACITY_FOLLOWING + 1;
+        mLogs = new HashMap<>(capacity);
+        mCountReferences = new HashMap<>(capacity);
+        mDataReferences = new HashMap<>(capacity);
+        mCountListeners = new HashMap<>(capacity);
+        mDataListeners = new HashMap<>(capacity);
+        mObservers = new HashMap<>(capacity);
+        mIsLoaded = new HashMap<>(capacity);
     }
 
     public static LogsPresenter getInstance(Context applicationContext) {
@@ -60,12 +61,23 @@ public class LogsPresenter {
 
     public LogsPresenter attach(Object component, String userId) {
         LogsListener listener = (LogsListener) component;
-        List<LogsListener> listeners = mObservers.get(userId);
+        LogsListener[] listeners = mObservers.get(userId);
         if (listeners != null) {
-            listeners.add(listener);
+
+            /* If the observer is already attached, return. */
+            for (LogsListener observer : listeners)
+                if (observer != null && observer.equals(listener)) return ourInstance;
+
+            /* Insert the observer at the first available slot. */
+            for (int i = 0; i < listeners.length; i++) {
+                if (listeners[i] == null) {
+                    listeners[i] = listener;
+                    return ourInstance;
+                }
+            }
         } else {
-            listeners = new ArrayList<>();
-            listeners.add(listener);
+            listeners = new LogsListener[Constants.MAX_LOGS_LISTENERS_COUNT];
+            listeners[0] = listener;
             mObservers.put(userId, listeners);
         }
         return ourInstance;
@@ -73,21 +85,30 @@ public class LogsPresenter {
 
     public LogsPresenter detach(Object component, String userId) {
         LogsListener listener = (LogsListener) component;
-        List<LogsListener> listeners = mObservers.get(userId);
-        if (listeners != null && listeners.contains(listener)) {
-            listeners.remove(listener);
-
-            if (listeners.size() == 0) {
-                mObservers.remove(userId);
-                stopSync(userId);
-
-                if (mObservers.size() == 0) ourInstance = null;
-                else {
-                    for (List<LogsListener> listenerList : mObservers.values()) {
-                        if (listenerList != null && listenerList.size() > 0) return ourInstance;
-                    }
-                    ourInstance = null;
+        LogsListener[] listeners = mObservers.get(userId);
+        if (listeners != null) {
+            for (int i = 0; i < listeners.length; i++) {
+                if (listeners[i] != null && listeners[i].equals(listener)) {
+                    listeners[i] = null;
                 }
+            }
+
+            /* If there is at least one observer attached, return. */
+            for (int i = 0; i < listeners.length; i++)
+                if (listeners[i] != null) return ourInstance;
+
+            mObservers.remove(userId);
+            stopSync(userId);
+
+            /* If there are no observers, free the memory for garbage collection. */
+            if (mObservers.size() == 0) ourInstance = null;
+            else {
+                for (LogsListener[] listenerArray : mObservers.values()) {
+                    for (LogsListener observer : listenerArray) {
+                        if (observer != null) return ourInstance;
+                    }
+                }
+                ourInstance = null;
             }
         }
         return ourInstance;
@@ -312,28 +333,30 @@ public class LogsPresenter {
     }
 
     private void notifyObservers(String userId, String event, int index, Log log) {
-        List<LogsListener> listeners = mObservers.get(userId);
+        LogsListener[] listeners = mObservers.get(userId);
         if (listeners != null) {
             for (LogsListener listener : listeners) {
-                switch (event) {
-                    case Constants.CALLBACK_INITIAL_LOADING:
-                        listener.onLogsInitialization(userId);
-                        break;
-                    case Constants.CALLBACK_START_LOADING:
-                        listener.onStartLogsLoading(userId);
-                        break;
-                    case Constants.CALLBACK_ADD_DATA:
-                        listener.onLogAdded(userId, index, log);
-                        break;
-                    case Constants.CALLBACK_CHANGE_DATA:
-                        listener.onLogChanged(userId, index, log);
-                        break;
-                    case Constants.CALLBACK_REMOVE_DATA:
-                        listener.onLogRemoved(userId, index, log);
-                    case Constants.CALLBACK_COMPLETE_LOADING:
-                        mIsLoaded.put(userId, true);
-                        listener.onCompleteLogsLoading(userId);
-                        break;
+                if (listener != null) {
+                    switch (event) {
+                        case Constants.CALLBACK_INITIAL_LOADING:
+                            listener.onLogsInitialization(userId);
+                            break;
+                        case Constants.CALLBACK_START_LOADING:
+                            listener.onStartLogsLoading(userId);
+                            break;
+                        case Constants.CALLBACK_ADD_DATA:
+                            listener.onLogAdded(userId, index, log);
+                            break;
+                        case Constants.CALLBACK_CHANGE_DATA:
+                            listener.onLogChanged(userId, index, log);
+                            break;
+                        case Constants.CALLBACK_REMOVE_DATA:
+                            listener.onLogRemoved(userId, index, log);
+                        case Constants.CALLBACK_COMPLETE_LOADING:
+                            mIsLoaded.put(userId, true);
+                            listener.onCompleteLogsLoading(userId);
+                            break;
+                    }
                 }
             }
         }

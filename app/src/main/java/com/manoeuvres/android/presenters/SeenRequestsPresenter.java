@@ -17,11 +17,11 @@ public class SeenRequestsPresenter {
 
     private List<Friend> mSeenRequests;
 
-    private List<SeenRequestsListener> mObservers;
+    private SeenRequestsListener[] mObservers;
 
     private SeenRequestsPresenter() {
-        mSeenRequests = new ArrayList<>();
-        mObservers = new ArrayList<>();
+        mSeenRequests = new ArrayList<>(Constants.INITIAL_COLLECTION_CAPACITY_SEEN_REQUESTS);
+        mObservers = new SeenRequestsListener[Constants.MAX_SEEN_REQUESTS_LISTENERS_COUNT];
     }
 
     public static SeenRequestsPresenter getInstance() {
@@ -30,19 +30,39 @@ public class SeenRequestsPresenter {
     }
 
     public SeenRequestsPresenter attach(Object component) {
-        SeenRequestsListener observer = (SeenRequestsListener) component;
-        if (!mObservers.contains(observer)) mObservers.add(observer);
+        SeenRequestsListener listener = (SeenRequestsListener) component;
 
+        /* If the observer is already attached, return. */
+        for (SeenRequestsListener observer : mObservers)
+            if (observer != null && observer.equals(listener)) return ourInstance;
+
+        /* Insert the observer at the first available slot. */
+        for (int i = 0; i < mObservers.length; i++) {
+            if (mObservers[i] == null) {
+                mObservers[i] = listener;
+                return ourInstance;
+            }
+        }
         return ourInstance;
     }
 
     public SeenRequestsPresenter detach(Object component) {
-        SeenRequestsListener observer = (SeenRequestsListener) component;
-        if (mObservers.contains(observer)) mObservers.remove(observer);
-        if (mObservers.size() == 0) {
+        SeenRequestsListener listener = (SeenRequestsListener) component;
+
+        /* If there are no observers, free the memory for garbage collection. */
+        if (mObservers.length == 0) {
             stopSync();
             ourInstance = null;
+            return null;
         }
+
+        for (int i = 0; i < mObservers.length; i++) {
+            if (mObservers[i] != null && mObservers[i].equals(listener)) {
+                mObservers[i] = null;
+                return ourInstance;
+            }
+        }
+
         return ourInstance;
     }
 
@@ -81,10 +101,12 @@ public class SeenRequestsPresenter {
 
     private void notifyObservers(String event) {
         for (SeenRequestsListener observer : mObservers) {
-            switch (event) {
-                case Constants.CALLBACK_COMPLETE_LOADING:
-                    observer.onSeenRequestsLoaded();
-                    break;
+            if (observer != null) {
+                switch (event) {
+                    case Constants.CALLBACK_COMPLETE_LOADING:
+                        observer.onSeenRequestsLoaded();
+                        break;
+                }
             }
         }
     }

@@ -19,13 +19,13 @@ public class RequestsPresenter {
 
     private List<Friend> mRequests;
 
-    private List<RequestsListener> mObservers;
+    private RequestsListener[] mObservers;
 
     private boolean mIsLoaded;
 
     private RequestsPresenter() {
-        mRequests = new ArrayList<>();
-        mObservers = new ArrayList<>();
+        mRequests = new ArrayList<>(Constants.INITIAL_COLLECTION_CAPACITY_REQUESTS);
+        mObservers = new RequestsListener[Constants.MAX_REQUESTS_LISTENERS_COUNT];
     }
 
     public static RequestsPresenter getInstance() {
@@ -35,21 +35,38 @@ public class RequestsPresenter {
 
     public RequestsPresenter attach(Object component) {
         RequestsListener listener = (RequestsListener) component;
-        if (!mObservers.contains(listener)) {
-            mObservers.add(listener);
+
+        /* If the observer is already attached, return. */
+        for (RequestsListener observer : mObservers)
+            if (observer != null && observer.equals(listener)) return ourInstance;
+
+        /* Insert the observer at the first available slot. */
+        for (int i = 0; i < mObservers.length; i++) {
+            if (mObservers[i] == null) {
+                mObservers[i] = listener;
+                return ourInstance;
+            }
         }
         return ourInstance;
     }
 
     public RequestsPresenter detach(Object component) {
         RequestsListener listener = (RequestsListener) component;
-        if (mObservers.contains(listener)) {
-            mObservers.remove(listener);
-        }
-        if (mObservers.size() == 0) {
+
+        /* If there are no observers, free the memory for garbage collection. */
+        if (mObservers.length == 0) {
             stopSync();
             ourInstance = null;
+            return null;
         }
+
+        for (int i = 0; i < mObservers.length; i++) {
+            if (mObservers[i] != null && mObservers[i].equals(listener)) {
+                mObservers[i] = null;
+                return ourInstance;
+            }
+        }
+
         return ourInstance;
     }
 
@@ -163,22 +180,24 @@ public class RequestsPresenter {
 
     private void notifyObservers(String event, int index, Friend friend) {
         for (RequestsListener listener : mObservers) {
-            switch (event) {
-                case Constants.CALLBACK_START_LOADING:
-                    listener.onStartRequestsLoading();
-                    break;
-                case Constants.CALLBACK_INITIAL_LOADING:
-                    listener.onRequestsInitialization();
-                    break;
-                case Constants.CALLBACK_ADD_DATA:
-                    listener.onRequestAdded(index, friend);
-                    break;
-                case Constants.CALLBACK_REMOVE_DATA:
-                    listener.onRequestRemoved(index, friend);
-                case Constants.CALLBACK_COMPLETE_LOADING:
-                    mIsLoaded = true;
-                    listener.onCompleteRequestsLoading();
-                    break;
+            if (listener != null) {
+                switch (event) {
+                    case Constants.CALLBACK_START_LOADING:
+                        listener.onStartRequestsLoading();
+                        break;
+                    case Constants.CALLBACK_INITIAL_LOADING:
+                        listener.onRequestsInitialization();
+                        break;
+                    case Constants.CALLBACK_ADD_DATA:
+                        listener.onRequestAdded(index, friend);
+                        break;
+                    case Constants.CALLBACK_REMOVE_DATA:
+                        listener.onRequestRemoved(index, friend);
+                    case Constants.CALLBACK_COMPLETE_LOADING:
+                        mIsLoaded = true;
+                        listener.onCompleteRequestsLoading();
+                        break;
+                }
             }
         }
     }

@@ -32,7 +32,7 @@ public class FacebookFriendsPresenter {
     private static FacebookFriendsPresenter ourInstance;
 
     private List<Friend> mFriends;
-    private List<FacebookFriendsListener> mObservers;
+    private FacebookFriendsListener[] mObservers;
 
     private SharedPreferences mSharedPreferences;
     private Gson mGson;
@@ -56,10 +56,10 @@ public class FacebookFriendsPresenter {
         }.getType();
         mFriends = mGson.fromJson(allFriendsList, type);
         if (mFriends == null) {
-            mFriends = new ArrayList<>();
+            mFriends = new ArrayList<>(Constants.INITIAL_COLLECTION_CAPACITY_FACEBOOK_FRIENDS);
         }
 
-        mObservers = new ArrayList<>();
+        mObservers = new FacebookFriendsListener[Constants.MAX_FACEBOOK_FRIENDS_LISTENERS_COUNT];
     }
 
     public static FacebookFriendsPresenter getInstance(Context applicationContext) {
@@ -70,19 +70,36 @@ public class FacebookFriendsPresenter {
 
     public FacebookFriendsPresenter attach(Object component) {
         FacebookFriendsListener listener = (FacebookFriendsListener) component;
-        if (!mObservers.contains(listener)) {
-            mObservers.add(listener);
+
+        /* If the observer is already attached, return. */
+        for (FacebookFriendsListener observer : mObservers)
+            if (observer != null && observer.equals(listener)) return ourInstance;
+
+        /* Insert the observer at the first available slot. */
+        for (int i = 0; i < mObservers.length; i++) {
+            if (mObservers[i] == null) {
+                mObservers[i] = listener;
+                return ourInstance;
+            }
         }
         return ourInstance;
     }
 
     public FacebookFriendsPresenter detach(Object component) {
         FacebookFriendsListener listener = (FacebookFriendsListener) component;
-        if (mObservers.contains(listener)) {
-            mObservers.remove(listener);
+
+        /* If there are no observers, free the memory for garbage collection. */
+        if (mObservers.length == 0) {
+            ourInstance = null;
+            return null;
         }
 
-        if (mObservers.size() == 0) ourInstance = null;
+        for (int i = 0; i < mObservers.length; i++) {
+            if (mObservers[i] != null && mObservers[i].equals(listener)) {
+                mObservers[i] = null;
+                return ourInstance;
+            }
+        }
 
         return ourInstance;
     }
@@ -186,18 +203,20 @@ public class FacebookFriendsPresenter {
 
     private void notifyObservers(String event) {
         for (FacebookFriendsListener listener : mObservers) {
-            switch (event) {
-                case Constants.CALLBACK_START_LOADING:
-                    listener.onStartFacebookFriendsLoading();
-                    break;
-                case Constants.CALLBACK_INITIAL_LOADING:
-                    listener.onFacebookFriendsInitialization();
-                    break;
-                case Constants.CALLBACK_COMPLETE_LOADING:
-                    isLoaded = true;
-                    mSharedPreferences.edit().putString(Constants.KEY_SHARED_PREF_DATA_FRIENDS, mGson.toJson(mFriends)).apply();
-                    listener.onCompleteFacebookFriendsLoading();
-                    break;
+            if (listener != null) {
+                switch (event) {
+                    case Constants.CALLBACK_START_LOADING:
+                        listener.onStartFacebookFriendsLoading();
+                        break;
+                    case Constants.CALLBACK_INITIAL_LOADING:
+                        listener.onFacebookFriendsInitialization();
+                        break;
+                    case Constants.CALLBACK_COMPLETE_LOADING:
+                        isLoaded = true;
+                        mSharedPreferences.edit().putString(Constants.KEY_SHARED_PREF_DATA_FRIENDS, mGson.toJson(mFriends)).apply();
+                        listener.onCompleteFacebookFriendsLoading();
+                        break;
+                }
             }
         }
     }

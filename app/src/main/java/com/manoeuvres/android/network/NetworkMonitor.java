@@ -13,8 +13,6 @@ import android.os.Build;
 import com.manoeuvres.android.util.Constants;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 
 import static android.content.Context.CONNECTIVITY_SERVICE;
 import static android.net.ConnectivityManager.CONNECTIVITY_ACTION;
@@ -24,10 +22,10 @@ public class NetworkMonitor {
 
     private static NetworkMonitor ourInstance;
 
-    private List<NetworkListener> mObservers;
+    private NetworkListener[] mObservers;
 
     private NetworkMonitor(Context applicationContext) {
-        mObservers = new ArrayList<>();
+        mObservers = new NetworkListener[Constants.MAX_NETWORK_LISTENERS_COUNT];
 
         /*
          * Uses a NetworkCallback instance to receive network updates in case of lollipop and above.
@@ -74,15 +72,27 @@ public class NetworkMonitor {
 
     public NetworkMonitor attach(Object component) {
         NetworkListener listener = (NetworkListener) component;
-        if (!mObservers.contains(listener)) mObservers.add(listener);
+        for (NetworkListener observer : mObservers) {
+            if (observer != null && observer.equals(listener)) return ourInstance;
+        }
 
+        for (int i = 0; i < mObservers.length; i++) {
+            if (mObservers[i] == null) {
+                mObservers[i] = listener;
+                return ourInstance;
+            }
+        }
         return ourInstance;
     }
 
     public NetworkMonitor detach(Object component) {
         NetworkListener listener = (NetworkListener) component;
-        if (mObservers.contains(listener)) mObservers.remove(listener);
-
+        for (int i = 0; i < mObservers.length; i++) {
+            if (mObservers[i] != null && mObservers[i].equals(listener)) {
+                mObservers[i] = null;
+                return ourInstance;
+            }
+        }
         return ourInstance;
     }
 
@@ -102,13 +112,15 @@ public class NetworkMonitor {
 
     private void notifyObservers(String event) {
         for (NetworkListener observer : mObservers) {
-            switch (event) {
-                case Constants.CALLBACK_NETWORK_CONNECTED:
-                    observer.onNetworkConnected();
-                    break;
-                case Constants.CALLBACK_NETWORK_DISCONNECTED:
-                    observer.onNetworkDisconnected();
-                    break;
+            if (observer != null) {
+                switch (event) {
+                    case Constants.CALLBACK_NETWORK_CONNECTED:
+                        observer.onNetworkConnected();
+                        break;
+                    case Constants.CALLBACK_NETWORK_DISCONNECTED:
+                        observer.onNetworkDisconnected();
+                        break;
+                }
             }
         }
     }

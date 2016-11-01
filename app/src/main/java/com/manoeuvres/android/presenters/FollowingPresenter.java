@@ -27,7 +27,7 @@ public class FollowingPresenter {
 
     private List<Friend> mFollowing;
 
-    private List<FollowingListener> mObservers;
+    private FollowingListener[] mObservers;
 
     private boolean mIsLoaded;
 
@@ -48,10 +48,10 @@ public class FollowingPresenter {
         }.getType();
         mFollowing = mGson.fromJson(friendList, mType);
         if (mFollowing == null) {
-            mFollowing = new ArrayList<>();
+            mFollowing = new ArrayList<>(Constants.INITIAL_COLLECTION_CAPACITY_FOLLOWING);
         }
 
-        mObservers = new ArrayList<>();
+        mObservers = new FollowingListener[Constants.MAX_FOLLOWING_LISTENERS_COUNT];
     }
 
     public static FollowingPresenter getInstance(Context applicationContext) {
@@ -61,21 +61,37 @@ public class FollowingPresenter {
 
     public FollowingPresenter attach(Object component) {
         FollowingListener listener = (FollowingListener) component;
-        if (!mObservers.contains(listener)) {
-            mObservers.add(listener);
+
+        /* If the observer is already attached, return. */
+        for (FollowingListener observer : mObservers)
+            if (observer != null && observer.equals(listener)) return ourInstance;
+
+        /* Insert the observer at the first available slot. */
+        for (int i = 0; i < mObservers.length; i++) {
+            if (mObservers[i] == null) {
+                mObservers[i] = listener;
+                return ourInstance;
+            }
         }
         return ourInstance;
     }
 
     public FollowingPresenter detach(Object component) {
         FollowingListener listener = (FollowingListener) component;
-        if (mObservers.contains(listener)) {
-            mObservers.remove(listener);
-        }
-        if (mObservers.size() == 0) {
-            stopSync();
+
+        /* If there are no observers, free the memory for garbage collection. */
+        if (mObservers.length == 0) {
             ourInstance = null;
+            return null;
         }
+
+        for (int i = 0; i < mObservers.length; i++) {
+            if (mObservers[i] != null && mObservers[i].equals(listener)) {
+                mObservers[i] = null;
+                return ourInstance;
+            }
+        }
+
         return ourInstance;
     }
 
@@ -257,25 +273,27 @@ public class FollowingPresenter {
 
     private void notifyObservers(String event, int index, Friend friend) {
         for (FollowingListener listener : mObservers) {
-            switch (event) {
-                case Constants.CALLBACK_START_LOADING:
-                    listener.onStartFollowingLoading();
-                    break;
-                case Constants.CALLBACK_INITIAL_LOADING:
-                    listener.onFollowingInitialization();
-                    break;
-                case Constants.CALLBACK_ADD_DATA:
-                    listener.onFollowingAdded(index, friend);
-                    break;
-                case Constants.CALLBACK_CHANGE_DATA:
-                    listener.onFollowingChanged(index, friend);
-                    break;
-                case Constants.CALLBACK_REMOVE_DATA:
-                    listener.onFollowingRemoved(index, friend);
-                case Constants.CALLBACK_COMPLETE_LOADING:
-                    mIsLoaded = true;
-                    listener.onCompleteFollowingLoading();
-                    break;
+            if (listener != null) {
+                switch (event) {
+                    case Constants.CALLBACK_START_LOADING:
+                        listener.onStartFollowingLoading();
+                        break;
+                    case Constants.CALLBACK_INITIAL_LOADING:
+                        listener.onFollowingInitialization();
+                        break;
+                    case Constants.CALLBACK_ADD_DATA:
+                        listener.onFollowingAdded(index, friend);
+                        break;
+                    case Constants.CALLBACK_CHANGE_DATA:
+                        listener.onFollowingChanged(index, friend);
+                        break;
+                    case Constants.CALLBACK_REMOVE_DATA:
+                        listener.onFollowingRemoved(index, friend);
+                    case Constants.CALLBACK_COMPLETE_LOADING:
+                        mIsLoaded = true;
+                        listener.onCompleteFollowingLoading();
+                        break;
+                }
             }
         }
     }

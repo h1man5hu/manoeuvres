@@ -88,4 +88,21 @@ public class Constants {
     public static final String COMMAND_NETWORK_CHECK = "/system/bin/ping -c 1 8.8.8.8";
 
     public static final int LIMIT_LOG_COUNT = 20;
+
+    public static final int MAX_NETWORK_LISTENERS_COUNT = 2;
+    public static final int MAX_FACEBOOK_FRIENDS_LISTENERS_COUNT = 0;
+    public static final int MAX_FOLLOWERS_LISTENERS_COUNT = 0;
+    public static final int MAX_FOLLOWING_LISTENERS_COUNT = 4;
+    public static final int MAX_REQUESTS_LISTENERS_COUNT = 2;
+    public static final int MAX_SEEN_FOLLOWING_LISTENERS_COUNT = 0;
+    public static final int MAX_SEEN_REQUESTS_LISTENERS_COUNT = 0;
+    public static final int MAX_LOGS_LISTENERS_COUNT = 1;
+    public static final int MAX_MOVES_LISTENERS_COUNT = 1;
+    public static final int MAX_LATEST_LOG_LISTENERS_COUNT = 1;
+    public static final int INITIAL_COLLECTION_CAPACITY_FACEBOOK_FRIENDS = 5;
+    public static final int INITIAL_COLLECTION_CAPACITY_FOLLOWERS = 5;
+    public static final int INITIAL_COLLECTION_CAPACITY_FOLLOWING = 2;
+    public static final int INITIAL_COLLECTION_CAPACITY_REQUESTS = 1;
+    public static final int INITIAL_COLLECTION_CAPACITY_SEEN_FOLLOWING = 2;
+    public static final int INITIAL_COLLECTION_CAPACITY_SEEN_REQUESTS = 1;
 }

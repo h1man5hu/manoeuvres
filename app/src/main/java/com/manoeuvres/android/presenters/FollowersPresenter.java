@@ -19,13 +19,13 @@ public class FollowersPresenter {
 
     private List<Friend> mFollowers;
 
-    private List<FollowersListener> mObservers;
+    private FollowersListener[] mObservers;
 
     private boolean mIsLoaded;
 
     private FollowersPresenter() {
-        mFollowers = new ArrayList<>();
-        mObservers = new ArrayList<>();
+        mFollowers = new ArrayList<>(Constants.INITIAL_COLLECTION_CAPACITY_FOLLOWERS);
+        mObservers = new FollowersListener[Constants.MAX_FOLLOWERS_LISTENERS_COUNT];
     }
 
     public static FollowersPresenter getInstance() {
@@ -35,21 +35,37 @@ public class FollowersPresenter {
 
     public FollowersPresenter attach(Object component) {
         FollowersListener listener = (FollowersListener) component;
-        if (!mObservers.contains(listener)) {
-            mObservers.add(listener);
+
+        /* If the observer is already attached, return. */
+        for (FollowersListener observer : mObservers)
+            if (observer != null && observer.equals(listener)) return ourInstance;
+
+        /* Insert the observer at the first available slot. */
+        for (int i = 0; i < mObservers.length; i++) {
+            if (mObservers[i] == null) {
+                mObservers[i] = listener;
+                return ourInstance;
+            }
         }
         return ourInstance;
     }
 
     public FollowersPresenter detach(Object component) {
         FollowersListener listener = (FollowersListener) component;
-        if (mObservers.contains(listener)) {
-            mObservers.remove(listener);
-        }
-        if (mObservers.size() == 0) {
-            stopSync();
+
+        /* If there are no observers, free the memory for garbage collection. */
+        if (mObservers.length == 0) {
             ourInstance = null;
+            return null;
         }
+
+        for (int i = 0; i < mObservers.length; i++) {
+            if (mObservers[i] != null && mObservers[i].equals(listener)) {
+                mObservers[i] = null;
+                return ourInstance;
+            }
+        }
+
         return ourInstance;
     }
 
@@ -154,23 +170,25 @@ public class FollowersPresenter {
 
     private void notifyObservers(String event, int index, Friend friend) {
         for (FollowersListener listener : mObservers) {
-            switch (event) {
-                case Constants.CALLBACK_START_LOADING:
-                    listener.onStartFollowersLoading();
-                    break;
-                case Constants.CALLBACK_INITIAL_LOADING:
-                    listener.onFollowersInitialization();
-                    break;
-                case Constants.CALLBACK_ADD_DATA:
-                    listener.onFollowerAdded(index, friend);
-                    break;
-                case Constants.CALLBACK_REMOVE_DATA:
-                    listener.onFollowerRemoved(index, friend);
-                    break;
-                case Constants.CALLBACK_COMPLETE_LOADING:
-                    mIsLoaded = true;
-                    listener.onCompleteFollowersLoading();
-                    break;
+            if (listener != null) {
+                switch (event) {
+                    case Constants.CALLBACK_START_LOADING:
+                        listener.onStartFollowersLoading();
+                        break;
+                    case Constants.CALLBACK_INITIAL_LOADING:
+                        listener.onFollowersInitialization();
+                        break;
+                    case Constants.CALLBACK_ADD_DATA:
+                        listener.onFollowerAdded(index, friend);
+                        break;
+                    case Constants.CALLBACK_REMOVE_DATA:
+                        listener.onFollowerRemoved(index, friend);
+                        break;
+                    case Constants.CALLBACK_COMPLETE_LOADING:
+                        mIsLoaded = true;
+                        listener.onCompleteFollowersLoading();
+                        break;
+                }
             }
         }
     }
