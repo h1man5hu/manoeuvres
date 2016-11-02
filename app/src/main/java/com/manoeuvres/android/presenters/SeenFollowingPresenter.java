@@ -33,16 +33,18 @@ public class SeenFollowingPresenter {
         SeenFollowingListener listener = (SeenFollowingListener) component;
 
         /* If the observer is already attached, return. */
-        for (SeenFollowingListener observer : mObservers)
-            if (observer != null && observer.equals(observer)) return ourInstance;
+        for (int i = 0; i < mObservers.length; i++) {
+            SeenFollowingListener observer = mObservers[i];
+            if (observer != null && observer.equals(listener)) return ourInstance;
+        }
 
         /* Insert the observer at the first available slot. */
-        for (int i = 0; i < mObservers.length; i++) {
+        for (int i = 0; i < mObservers.length; i++)
             if (mObservers[i] == null) {
                 mObservers[i] = listener;
                 return ourInstance;
             }
-        }
+
         return ourInstance;
     }
 
@@ -56,12 +58,11 @@ public class SeenFollowingPresenter {
             return null;
         }
 
-        for (int i = 0; i < mObservers.length; i++) {
+        for (int i = 0; i < mObservers.length; i++)
             if (mObservers[i] != null && mObservers[i].equals(listener)) {
                 mObservers[i] = null;
                 return ourInstance;
             }
-        }
 
         return ourInstance;
     }
@@ -72,9 +73,9 @@ public class SeenFollowingPresenter {
                 @Override
                 public void onDataChange(DataSnapshot dataSnapshot) {
                     mSeenFollowing.clear();
-                    for (DataSnapshot snapshot : dataSnapshot.getChildren()) {
-                        mSeenFollowing.add(new Friend(snapshot.getValue().toString()));
-                    }
+                    if (dataSnapshot.hasChildren())
+                        for (DataSnapshot snapshot : dataSnapshot.getChildren())
+                            mSeenFollowing.add(new Friend(snapshot.getValue().toString()));
                 }
 
                 @Override
@@ -100,14 +101,14 @@ public class SeenFollowingPresenter {
     }
 
     private void notifyObservers(String event) {
-        for (SeenFollowingListener observer : mObservers) {
-            if (observer != null) {
+        for (int i = 0; i < mObservers.length; i++) {
+            SeenFollowingListener observer = mObservers[i];
+            if (observer != null)
                 switch (event) {
                     case Constants.CALLBACK_COMPLETE_LOADING:
                         observer.onSeenFollowingLoaded();
                         break;
                 }
-            }
         }
     }
 

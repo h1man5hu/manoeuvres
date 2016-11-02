@@ -4,9 +4,7 @@ package com.manoeuvres.android.views.fragments;
 import android.app.Activity;
 import android.app.NotificationManager;
 import android.content.Context;
-import android.content.SharedPreferences;
 import android.os.Bundle;
-import android.preference.PreferenceManager;
 import android.support.design.widget.NavigationView;
 import android.support.v4.app.Fragment;
 import android.support.v7.widget.LinearLayoutManager;
@@ -19,7 +17,6 @@ import android.widget.Button;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
-import com.google.gson.Gson;
 import com.manoeuvres.android.R;
 import com.manoeuvres.android.presenters.DatabaseHelper;
 import com.manoeuvres.android.presenters.FacebookFriendsPresenter;
@@ -29,6 +26,8 @@ import com.manoeuvres.android.models.Friend;
 import com.manoeuvres.android.util.UniqueId;
 import com.manoeuvres.android.views.activities.MainActivity;
 import com.manoeuvres.android.views.viewdecorators.DividerItemDecoration;
+
+import java.util.List;
 
 
 public class RequestsFragment extends Fragment implements RequestsListener {
@@ -49,8 +48,6 @@ public class RequestsFragment extends Fragment implements RequestsListener {
 
     private NotificationManager mNotificationManager;
 
-    private SharedPreferences mSharedPreferences;
-    private Gson mGson;
 
     public RequestsFragment() {
         // Required empty public constructor
@@ -66,9 +63,6 @@ public class RequestsFragment extends Fragment implements RequestsListener {
         mMainActivity = (MainActivity) context;
 
         mNotificationManager = (NotificationManager) mMainActivity.getSystemService(Context.NOTIFICATION_SERVICE);
-
-        mSharedPreferences = PreferenceManager.getDefaultSharedPreferences(mMainActivity.getApplicationContext());
-        mGson = new Gson();
     }
 
     @Override
@@ -110,8 +104,11 @@ public class RequestsFragment extends Fragment implements RequestsListener {
                 .sync();
 
         if (mRequestsPresenter.isLoaded()) {
-            for (Friend friend : mRequestsPresenter.getAll())
+            List<Friend> requests = mRequestsPresenter.getAll();
+            for (int i = 0; i < requests.size(); i++) {
+                Friend friend = requests.get(i);
                 mNotificationManager.cancel(UniqueId.getRequestId(friend));
+            }
         }
 
         mAdapter.notifyDataSetChanged();
@@ -154,7 +151,6 @@ public class RequestsFragment extends Fragment implements RequestsListener {
     @Override
     public void onCompleteRequestsLoading() {
         hideProgress();
-        //mSharedPreferences.edit().putString(Constants.KEY_SHARED_PREF_DATA_REQUESTS, mGson.toJson(mRequestsPresenter.getAll())).apply();
     }
 
     @Override

@@ -72,7 +72,8 @@ public class NetworkMonitor {
 
     public NetworkMonitor attach(Object component) {
         NetworkListener listener = (NetworkListener) component;
-        for (NetworkListener observer : mObservers) {
+        for (int i = 0; i < mObservers.length; i++) {
+            NetworkListener observer = mObservers[i];
             if (observer != null && observer.equals(listener)) return ourInstance;
         }
 
@@ -111,7 +112,8 @@ public class NetworkMonitor {
     }
 
     private void notifyObservers(String event) {
-        for (NetworkListener observer : mObservers) {
+        for (int i = 0; i < mObservers.length; i++) {
+            NetworkListener observer = mObservers[i];
             if (observer != null) {
                 switch (event) {
                     case Constants.CALLBACK_NETWORK_CONNECTED:

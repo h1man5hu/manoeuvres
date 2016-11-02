@@ -15,9 +15,11 @@ import com.manoeuvres.android.util.Constants;
 import com.manoeuvres.android.util.UniqueId;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class LatestLogPresenter {
     private static LatestLogPresenter ourInstance;
@@ -54,16 +56,18 @@ public class LatestLogPresenter {
         if (listeners != null) {
 
             /* If the observer is already attached, return. */
-            for (LatestLogListener observer : listeners)
+            for (int i = 0; i < listeners.length; i++) {
+                LatestLogListener observer = listeners[i];
                 if (observer != null && observer.equals(listener)) return ourInstance;
+            }
 
             /* Insert the observer at the first available slot. */
-            for (int i = 0; i < listeners.length; i++) {
+            for (int i = 0; i < listeners.length; i++)
                 if (listeners[i] == null) {
                     listeners[i] = listener;
                     return ourInstance;
                 }
-            }
+
         } else {
             listeners = new LatestLogListener[Constants.MAX_LATEST_LOG_LISTENERS_COUNT];
             listeners[0] = listener;
@@ -76,15 +80,11 @@ public class LatestLogPresenter {
         LatestLogListener listener = (LatestLogListener) component;
         LatestLogListener[] listeners = mObservers.get(userId);
         if (listeners != null) {
-            for (int i = 0; i < listeners.length; i++) {
-                if (listeners[i] != null && listeners[i].equals(listener)) {
-                    listeners[i] = null;
-                }
-            }
+            for (int i = 0; i < listeners.length; i++)
+                if (listeners[i] != null && listeners[i].equals(listener)) listeners[i] = null;
 
             /* If there is at least one observer attached, return. */
-            for (int i = 0; i < listeners.length; i++)
-                if (listeners[i] != null) return ourInstance;
+            for (int i = 0; i < listeners.length; i++) if (listeners[i] != null) return ourInstance;
 
             mObservers.remove(userId);
             stopSync(userId);
@@ -92,11 +92,13 @@ public class LatestLogPresenter {
             /* If there are no observers, free the memory for garbage collection. */
             if (mObservers.size() == 0) ourInstance = null;
             else {
-                for (LatestLogListener[] listenerArray : mObservers.values()) {
-                    for (LatestLogListener observer : listenerArray) {
-                        if (observer != null) return ourInstance;
-                    }
-                }
+                Collection<LatestLogListener[]> listenerArrays = mObservers.values();
+                if (listenerArrays.size() > 0)
+                    for (LatestLogListener[] listenerArray : listenerArrays)
+                        for (int i = 0; i < listenerArray.length; i++) {
+                            LatestLogListener observer = listenerArray[i];
+                            if (observer != null) return ourInstance;
+                        }
                 ourInstance = null;
             }
         }
@@ -162,12 +164,14 @@ public class LatestLogPresenter {
     }
 
     public LatestLogPresenter sync() {
-        for (String userId : mReferences.keySet()) sync(userId);
+        Set<String> keys = mReferences.keySet();
+        if (keys.size() > 0) for (String userId : keys) sync(userId);
         return ourInstance;
     }
 
     public LatestLogPresenter stopSync() {
-        for (String userId : mReferences.keySet()) stopSync(userId);
+        Set<String> keys = mReferences.keySet();
+        if (keys.size() > 0) for (String userId : keys) stopSync(userId);
         return ourInstance;
     }
 
@@ -183,13 +187,13 @@ public class LatestLogPresenter {
     private void notifyObservers(String userId, String event, Log log, boolean inProgress) {
         LatestLogListener[] observers = mObservers.get(userId);
         if (observers != null) {
-            for (LatestLogListener observer : observers) {
-                if (observer != null) {
+            for (int i = 0; i < observers.length; i++) {
+                LatestLogListener observer = observers[i];
+                if (observer != null)
                     switch (event) {
                         case Constants.CALLBACK_CHANGE_DATA:
                             observer.onLatestLogChanged(userId, log, inProgress);
                     }
-                }
             }
         }
     }

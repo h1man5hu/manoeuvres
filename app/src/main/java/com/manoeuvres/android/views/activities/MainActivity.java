@@ -169,18 +169,21 @@ public class MainActivity extends AppCompatActivity
         else onNetworkDisconnected();
 
         /* Add the menu items for the cached friends to the navigation menu. */
-        for (Friend friend : mFollowingPresenter.getAll()) {
+        List<Friend> following = mFollowingPresenter.getAll();
+        for (int i = 0; i < following.size(); i++) {
+            Friend friend = following.get(i);
             int friendMenuId = UniqueId.getMenuId(friend);
-            if (mNavigationMenu.findItem(friendMenuId) == null) {
+            if (mNavigationMenu.findItem(friendMenuId) == null)
                 mNavigationMenu.add(R.id.nav_group_timelines, friendMenuId, 1, friend.getName()).setCheckable(true);
-            }
         }
 
         /* Remove the menu items for the friends which were removed in the background. */
         List<Friend> removedFollowing = mFollowingPresenter.getRemovedFollowing();
         if (removedFollowing != null)
-            for (Friend removedFriend : mFollowingPresenter.getRemovedFollowing())
+            for (int i = 0; i < removedFollowing.size(); i++) {
+                Friend removedFriend = removedFollowing.get(i);
                 onFollowingRemoved(0, removedFriend);
+            }
     }
 
     @Override
@@ -329,7 +332,9 @@ public class MainActivity extends AppCompatActivity
         } else {
             TimelineFragment fragment;
             if (isFriend) {
-                for (Friend friend : mFollowingPresenter.getAll()) {
+                List<Friend> following = mFollowingPresenter.getAll();
+                for (int i = 0; i < following.size(); i++) {
+                    Friend friend = following.get(i);
                     if (UniqueId.getMenuId(friend) == menuId) {
                         fragment = (TimelineFragment) mFragmentManager.findFragmentByTag(UniqueId.getTimelineFragmentTag(friend));
                         if (fragment == null) {
@@ -340,7 +345,6 @@ public class MainActivity extends AppCompatActivity
                         break;
                     }
                 }
-
             } else {
                 /* Simulate the back button if timeline is selected in the navigation menu. */
                 fragment = (TimelineFragment) mFragmentManager.findFragmentByTag(Constants.TAG_FRAGMENT_TIMELINE);

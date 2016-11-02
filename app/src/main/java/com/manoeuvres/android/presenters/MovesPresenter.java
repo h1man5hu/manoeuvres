@@ -18,9 +18,11 @@ import com.manoeuvres.android.util.UniqueId;
 
 import java.lang.reflect.Type;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class MovesPresenter {
     private static MovesPresenter ourInstance;
@@ -69,16 +71,17 @@ public class MovesPresenter {
         if (listeners != null) {
 
             /* If the observer is already attached, return. */
-            for (MovesListener observer : listeners)
+            for (int i = 0; i < listeners.length; i++) {
+                MovesListener observer = listeners[i];
                 if (observer != null && observer.equals(listener)) return ourInstance;
+            }
 
             /* Insert the observer at the first available slot. */
-            for (int i = 0; i < listeners.length; i++) {
+            for (int i = 0; i < listeners.length; i++)
                 if (listeners[i] == null) {
                     listeners[i] = listener;
                     return ourInstance;
                 }
-            }
         } else {
             listeners = new MovesListener[Constants.MAX_MOVES_LISTENERS_COUNT];
             listeners[0] = listener;
@@ -96,8 +99,7 @@ public class MovesPresenter {
                 if (listeners[i] != null && listeners[i].equals(listener)) listeners[i] = null;
 
             /* If there is at least one observer attached, return. */
-            for (int i = 0; i < listeners.length; i++)
-                if (listeners[i] != null) return ourInstance;
+            for (int i = 0; i < listeners.length; i++) if (listeners[i] != null) return ourInstance;
 
             mObservers.remove(userId);
             stopSync(userId);
@@ -105,11 +107,13 @@ public class MovesPresenter {
             /* If there are no observers, free the memory for garbage collection. */
             if (mObservers.size() == 0) ourInstance = null;
             else {
-                for (MovesListener[] listenerArray : mObservers.values()) {
-                    for (MovesListener observer : listenerArray) {
-                        if (observer != null) return ourInstance;
-                    }
-                }
+                Collection<MovesListener[]> listenerArrays = mObservers.values();
+                if (listenerArrays.size() > 0)
+                    for (MovesListener[] listenerArray : listenerArrays)
+                        for (int i = 0; i < listenerArray.length; i++) {
+                            MovesListener observer = listenerArray[i];
+                            if (observer != null) return ourInstance;
+                        }
                 ourInstance = null;
             }
         }
@@ -176,9 +180,9 @@ public class MovesPresenter {
                      */
                         if (count == 0) {
                             if (moves != null && moves.size() > 0) {
-                                for (String moveId : moves.keySet()) {
-                                    moves.remove(moveId);
-                                }
+                                Set<String> keys = moves.keySet();
+                                if (keys.size() > 0)
+                                    for (String moveId : keys) moves.remove(moveId);
                                 notifyObservers(userId, Constants.CALLBACK_COMPLETE_LOADING);
                             }
                         } else if (count > 0) {
@@ -223,14 +227,17 @@ public class MovesPresenter {
                                             if (updatedMoves.size() == count) {
                                                 if (moves.size() > count) {
                                                     Map<String, Move> removedMoves = new HashMap<>(moves);
-                                                    for (String moveId : updatedMoves.keySet()) {
+                                                    Set<String> keys = updatedMoves.keySet();
+                                                    if (keys.size() > 0) for (String moveId : keys)
                                                         removedMoves.remove(moveId);
-                                                    }
-                                                    for (String moveId : removedMoves.keySet()) {
-                                                        Move removedMove = new Move(moves.get(moveId));
-                                                        moves.remove(moveId);
-                                                        notifyObservers(userId, Constants.CALLBACK_REMOVE_DATA, moveId, removedMove);
-                                                    }
+
+                                                    keys = removedMoves.keySet();
+                                                    if (keys.size() > 0)
+                                                        for (String moveId : keys) {
+                                                            Move removedMove = new Move(moves.get(moveId));
+                                                            moves.remove(moveId);
+                                                            notifyObservers(userId, Constants.CALLBACK_REMOVE_DATA, moveId, removedMove);
+                                                        }
                                                 }
                                                 notifyObservers(userId, Constants.CALLBACK_COMPLETE_LOADING);
                                             }
@@ -303,9 +310,8 @@ public class MovesPresenter {
     }
 
     public MovesPresenter sync() {
-        for (String userId : mCountReferences.keySet()) {
-            setListeners(userId);
-        }
+        Set<String> keys = mCountReferences.keySet();
+        if (keys.size() > 0) for (String userId : keys) setListeners(userId);
         return ourInstance;
     }
 
@@ -315,9 +321,8 @@ public class MovesPresenter {
     }
 
     public MovesPresenter stopSync() {
-        for (String userId : mCountReferences.keySet()) {
-            removeListeners(userId);
-        }
+        Set<String> keys = mCountReferences.keySet();
+        if (keys.size() > 0) for (String userId : keys) removeListeners(userId);
         return ourInstance;
     }
 
@@ -338,10 +343,10 @@ public class MovesPresenter {
 
     public String getKey(String userID, Move move) {
         Map<String, Move> moves = mMoves.get(userID);
-        if (moves != null) {
-            for (Map.Entry<String, Move> entry : moves.entrySet()) {
+        if (moves != null && moves.size() > 0) {
+            Set<Map.Entry<String, Move>> moveEntrySet = moves.entrySet();
+            if (moveEntrySet.size() > 0) for (Map.Entry<String, Move> entry : moveEntrySet)
                 if (entry.getValue().equals(move)) return entry.getKey();
-            }
         }
         return null;
     }
@@ -355,8 +360,9 @@ public class MovesPresenter {
     private void notifyObservers(String userId, String event, String key, Move move) {
         MovesListener[] listeners = mObservers.get(userId);
         if (listeners != null) {
-            for (MovesListener listener : listeners) {
-                if (listener != null) {
+            for (int i = 0; i < listeners.length; i++) {
+                MovesListener listener = listeners[i];
+                if (listener != null)
                     switch (event) {
                         case Constants.CALLBACK_START_LOADING:
                             listener.onStartMovesLoading(userId);
@@ -378,7 +384,6 @@ public class MovesPresenter {
                             listener.onCompleteMovesLoading(userId);
                             break;
                     }
-                }
             }
         }
     }

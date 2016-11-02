@@ -71,15 +71,10 @@ public class DatabaseHelper {
                     userRequestsReference.addListenerForSingleValueEvent(new ValueEventListener() {
                         @Override
                         public void onDataChange(DataSnapshot dataSnapshot) {
-                            for (DataSnapshot snapshot : dataSnapshot.getChildren()) {
-                                if (snapshot.getValue() != null) {
-                                    if (snapshot.getValue().equals(friend.getFirebaseId())) {
+                            if (dataSnapshot.hasChildren())
+                                for (DataSnapshot snapshot : dataSnapshot.getChildren())
+                                    if (snapshot.getValue().equals(friend.getFirebaseId()))
                                         userRequestsReference.child(snapshot.getKey()).setValue(null);
-                                    }
-                                } else {
-                                    break;
-                                }
-                            }
                         }
 
                         @Override
@@ -178,15 +173,10 @@ public class DatabaseHelper {
                     mUserFollowersReference.addListenerForSingleValueEvent(new ValueEventListener() {
                         @Override
                         public void onDataChange(DataSnapshot dataSnapshot) {
-                            for (DataSnapshot snapshot : dataSnapshot.getChildren()) {
-                                if (snapshot.getValue() != null) {
-                                    if (snapshot.getValue().equals(friend.getFirebaseId())) {
+                            if (dataSnapshot.hasChildren())
+                                for (DataSnapshot snapshot : dataSnapshot.getChildren())
+                                    if (snapshot.getValue().equals(friend.getFirebaseId()))
                                         mUserFollowersReference.child(snapshot.getKey()).setValue(null);
-                                    }
-                                } else {
-                                    break;
-                                }
-                            }
                         }
 
                         @Override
@@ -215,15 +205,10 @@ public class DatabaseHelper {
                     friendFollowingReference.addListenerForSingleValueEvent(new ValueEventListener() {
                         @Override
                         public void onDataChange(DataSnapshot dataSnapshot) {
-                            for (DataSnapshot snapshot : dataSnapshot.getChildren()) {
-                                if (snapshot.getValue() != null) {
-                                    if (snapshot.getValue().equals(mUser.getUid())) {
+                            if (dataSnapshot.hasChildren())
+                                for (DataSnapshot snapshot : dataSnapshot.getChildren())
+                                    if (snapshot.getValue().equals(mUser.getUid()))
                                         friendFollowingReference.child(snapshot.getKey()).setValue(null);
-                                    }
-                                } else {
-                                    break;
-                                }
-                            }
                         }
 
                         @Override
@@ -259,11 +244,10 @@ public class DatabaseHelper {
                 mUserFollowingReference.addListenerForSingleValueEvent(new ValueEventListener() {
                     @Override
                     public void onDataChange(DataSnapshot dataSnapshot) {
-                        for (DataSnapshot snapshot : dataSnapshot.getChildren()) {
-                            if (snapshot.getValue().equals(friend.getFirebaseId())) {
-                                mUserFollowingReference.child(snapshot.getKey()).setValue(null);
-                            }
-                        }
+                        if (dataSnapshot.hasChildren())
+                            for (DataSnapshot snapshot : dataSnapshot.getChildren())
+                                if (snapshot.getValue().equals(friend.getFirebaseId()))
+                                    mUserFollowingReference.child(snapshot.getKey()).setValue(null);
                     }
 
                     @Override
@@ -292,11 +276,10 @@ public class DatabaseHelper {
                     friendFollowersReference.addListenerForSingleValueEvent(new ValueEventListener() {
                         @Override
                         public void onDataChange(DataSnapshot dataSnapshot) {
-                            for (DataSnapshot snapshot : dataSnapshot.getChildren()) {
-                                if (snapshot.getValue().equals(mUser.getUid())) {
-                                    friendFollowersReference.child(snapshot.getKey()).setValue(null);
-                                }
-                            }
+                            if (dataSnapshot.hasChildren())
+                                for (DataSnapshot snapshot : dataSnapshot.getChildren())
+                                    if (snapshot.getValue().equals(mUser.getUid()))
+                                        friendFollowersReference.child(snapshot.getKey()).setValue(null);
                         }
 
                         @Override
@@ -373,18 +356,12 @@ public class DatabaseHelper {
                     friendRequestsReference.addListenerForSingleValueEvent(new ValueEventListener() {
                         @Override
                         public void onDataChange(DataSnapshot dataSnapshot) {
-                            for (DataSnapshot snapshot : dataSnapshot.getChildren()) {
-                                if (snapshot.getValue() != null) {
+                            if (dataSnapshot.hasChildren())
+                                for (DataSnapshot snapshot : dataSnapshot.getChildren())
                                     if (snapshot.getValue().equals(mUser.getUid())) {
                                         friendRequestsReference.child(snapshot.getKey()).setValue(null);
-                                        if (listener != null)
-                                            listener.onCancelled();
+                                        if (listener != null) listener.onCancelled();
                                     }
-                                } else {
-                                    break;
-                                }
-
-                            }
                         }
 
                         @Override
@@ -406,12 +383,10 @@ public class DatabaseHelper {
         mRequestsReference.child(friend.getFirebaseId()).addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot dataSnapshot) {
-                for (DataSnapshot snapshot : dataSnapshot.getChildren()) {
-                    if (snapshot.getValue() != null) {
+                if (dataSnapshot.hasChildren())
+                    for (DataSnapshot snapshot : dataSnapshot.getChildren())
                         if (snapshot.getValue().equals(mUser.getUid())) listener.onComplete(true);
                         else listener.onComplete(false);
-                    } else break;
-                }
             }
 
             @Override
@@ -424,7 +399,8 @@ public class DatabaseHelper {
     /* To avoid notifications for already seen requests. */
     public static void pushSeenRequests(List<Friend> requests) {
         List<String> requestIds = new ArrayList<>();
-        for (Friend request : requests) {
+        for (int i = 0; i < requests.size(); i++) {
+            Friend request = requests.get(i);
             requestIds.add(request.getFirebaseId());
         }
         mUserSeenRequestsReference.setValue(requestIds);
@@ -433,7 +409,8 @@ public class DatabaseHelper {
     /* To avoid notifications for already seen accepted requests. */
     public static void pushSeenFollowing(List<Friend> following) {
         List<String> followingIds = new ArrayList<>();
-        for (Friend friend : following) {
+        for (int i = 0; i < following.size(); i++) {
+            Friend friend = following.get(i);
             followingIds.add(friend.getFirebaseId());
         }
         mUserSeenFollowingReference.setValue(followingIds);
@@ -496,13 +473,11 @@ public class DatabaseHelper {
         mUserLogsReference.limitToLast(1).addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot dataSnapshot) {
-                for (DataSnapshot snapshot : dataSnapshot.getChildren()) {
-                    if (snapshot.getKey() != null) {
-                        mUserLogsReference.child(snapshot.getKey()).child(Constants.FIREBASE_DATABASE_REFERENCE_LOGS_ENDTIME).setValue(System.currentTimeMillis());
-                    } else {
-                        break;
-                    }
-                }
+                if (dataSnapshot.hasChildren())
+                    for (DataSnapshot snapshot : dataSnapshot.getChildren())
+                        mUserLogsReference.child(snapshot.getKey())
+                                .child(Constants.FIREBASE_DATABASE_REFERENCE_LOGS_ENDTIME)
+                                .setValue(System.currentTimeMillis());
             }
 
             @Override

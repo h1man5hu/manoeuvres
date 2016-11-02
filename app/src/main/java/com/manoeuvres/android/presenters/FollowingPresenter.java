@@ -63,16 +63,18 @@ public class FollowingPresenter {
         FollowingListener listener = (FollowingListener) component;
 
         /* If the observer is already attached, return. */
-        for (FollowingListener observer : mObservers)
+        for (int i = 0; i < mObservers.length; i++) {
+            FollowingListener observer = mObservers[i];
             if (observer != null && observer.equals(listener)) return ourInstance;
+        }
 
         /* Insert the observer at the first available slot. */
-        for (int i = 0; i < mObservers.length; i++) {
+        for (int i = 0; i < mObservers.length; i++)
             if (mObservers[i] == null) {
                 mObservers[i] = listener;
                 return ourInstance;
             }
-        }
+
         return ourInstance;
     }
 
@@ -85,12 +87,11 @@ public class FollowingPresenter {
             return null;
         }
 
-        for (int i = 0; i < mObservers.length; i++) {
+        for (int i = 0; i < mObservers.length; i++)
             if (mObservers[i] != null && mObservers[i].equals(listener)) {
                 mObservers[i] = null;
                 return ourInstance;
             }
-        }
 
         return ourInstance;
     }
@@ -112,7 +113,8 @@ public class FollowingPresenter {
                      */
                     if (count == 0) {
                         if (mFollowing.size() > 0) {
-                            for (Friend removedFriend : mFollowing) {
+                            for (int i = 0; i < mFollowing.size(); i++) {
+                                Friend removedFriend = mFollowing.get(i);
                                 Friend friend = new Friend(removedFriend.getFirebaseId());
                                 mFollowing.remove(removedFriend);
                                 notifyObservers(Constants.CALLBACK_REMOVE_DATA, mFollowing.indexOf(friend), friend);
@@ -167,7 +169,8 @@ public class FollowingPresenter {
                                                 if (mFollowing.size() > count) {
                                                     List<Friend> removedFollowing = new ArrayList<>(mFollowing);
                                                     removedFollowing.removeAll(updatedFollowing);
-                                                    for (Friend removedFriend : removedFollowing) {
+                                                    for (int i = 0; i < removedFollowing.size(); i++) {
+                                                        Friend removedFriend = removedFollowing.get(i);
                                                         friend = new Friend(removedFriend.getFirebaseId());
                                                         index = mFollowing.indexOf(removedFriend);
                                                         mFollowing.remove(removedFriend);
@@ -272,8 +275,9 @@ public class FollowingPresenter {
     }
 
     private void notifyObservers(String event, int index, Friend friend) {
-        for (FollowingListener listener : mObservers) {
-            if (listener != null) {
+        for (int i = 0; i < mObservers.length; i++) {
+            FollowingListener listener = mObservers[i];
+            if (listener != null)
                 switch (event) {
                     case Constants.CALLBACK_START_LOADING:
                         listener.onStartFollowingLoading();
@@ -294,7 +298,6 @@ public class FollowingPresenter {
                         listener.onCompleteFollowingLoading();
                         break;
                 }
-            }
         }
     }
 

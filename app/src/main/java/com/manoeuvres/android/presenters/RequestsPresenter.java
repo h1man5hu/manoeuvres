@@ -37,16 +37,18 @@ public class RequestsPresenter {
         RequestsListener listener = (RequestsListener) component;
 
         /* If the observer is already attached, return. */
-        for (RequestsListener observer : mObservers)
+        for (int i = 0; i < mObservers.length; i++) {
+            RequestsListener observer = mObservers[i];
             if (observer != null && observer.equals(listener)) return ourInstance;
+        }
 
         /* Insert the observer at the first available slot. */
-        for (int i = 0; i < mObservers.length; i++) {
+        for (int i = 0; i < mObservers.length; i++)
             if (mObservers[i] == null) {
                 mObservers[i] = listener;
                 return ourInstance;
             }
-        }
+
         return ourInstance;
     }
 
@@ -60,12 +62,11 @@ public class RequestsPresenter {
             return null;
         }
 
-        for (int i = 0; i < mObservers.length; i++) {
+        for (int i = 0; i < mObservers.length; i++)
             if (mObservers[i] != null && mObservers[i].equals(listener)) {
                 mObservers[i] = null;
                 return ourInstance;
             }
-        }
 
         return ourInstance;
     }
@@ -179,8 +180,9 @@ public class RequestsPresenter {
     }
 
     private void notifyObservers(String event, int index, Friend friend) {
-        for (RequestsListener listener : mObservers) {
-            if (listener != null) {
+        for (int i = 0; i < mObservers.length; i++) {
+            RequestsListener listener = mObservers[i];
+            if (listener != null)
                 switch (event) {
                     case Constants.CALLBACK_START_LOADING:
                         listener.onStartRequestsLoading();
@@ -198,7 +200,6 @@ public class RequestsPresenter {
                         listener.onCompleteRequestsLoading();
                         break;
                 }
-            }
         }
     }
 

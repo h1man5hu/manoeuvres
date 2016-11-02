@@ -37,16 +37,18 @@ public class FollowersPresenter {
         FollowersListener listener = (FollowersListener) component;
 
         /* If the observer is already attached, return. */
-        for (FollowersListener observer : mObservers)
+        for (int i = 0; i < mObservers.length; i++) {
+            FollowersListener observer = mObservers[i];
             if (observer != null && observer.equals(listener)) return ourInstance;
+        }
 
         /* Insert the observer at the first available slot. */
-        for (int i = 0; i < mObservers.length; i++) {
+        for (int i = 0; i < mObservers.length; i++)
             if (mObservers[i] == null) {
                 mObservers[i] = listener;
                 return ourInstance;
             }
-        }
+
         return ourInstance;
     }
 
@@ -59,12 +61,11 @@ public class FollowersPresenter {
             return null;
         }
 
-        for (int i = 0; i < mObservers.length; i++) {
+        for (int i = 0; i < mObservers.length; i++)
             if (mObservers[i] != null && mObservers[i].equals(listener)) {
                 mObservers[i] = null;
                 return ourInstance;
             }
-        }
 
         return ourInstance;
     }
@@ -169,8 +170,9 @@ public class FollowersPresenter {
     }
 
     private void notifyObservers(String event, int index, Friend friend) {
-        for (FollowersListener listener : mObservers) {
-            if (listener != null) {
+        for (int i = 0; i < mObservers.length; i++) {
+            FollowersListener listener = mObservers[i];
+            if (listener != null)
                 switch (event) {
                     case Constants.CALLBACK_START_LOADING:
                         listener.onStartFollowersLoading();
@@ -189,7 +191,6 @@ public class FollowersPresenter {
                         listener.onCompleteFollowersLoading();
                         break;
                 }
-            }
         }
     }
 

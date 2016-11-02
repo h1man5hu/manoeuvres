@@ -31,6 +31,8 @@ import com.manoeuvres.android.util.Constants;
 import com.manoeuvres.android.util.TextHelper;
 import com.manoeuvres.android.util.UniqueId;
 
+import java.util.List;
+
 
 public class NotificationService extends Service implements RequestsListener, FollowingListener, LatestLogListener {
 
@@ -235,7 +237,9 @@ public class NotificationService extends Service implements RequestsListener, Fo
      */
     @Override
     public void onCompleteFollowingLoading() {
-        for (Friend friend : mFollowingPresenter.getAll()) {
+        List<Friend> following = mFollowingPresenter.getAll();
+        for (int i = 0; i < following.size(); i++) {
+            Friend friend = following.get(i);
             mLatestLogPresenter.addFriend(friend.getFirebaseId()).attach(this, friend.getFirebaseId()).sync(friend.getFirebaseId());
         }
         DatabaseHelper.pushSeenFollowing(mFollowingPresenter.getAll());

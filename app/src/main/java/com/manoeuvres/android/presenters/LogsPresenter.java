@@ -18,9 +18,11 @@ import com.manoeuvres.android.util.UniqueId;
 
 import java.lang.reflect.Type;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class LogsPresenter {
     private static LogsPresenter ourInstance;
@@ -65,21 +67,23 @@ public class LogsPresenter {
         if (listeners != null) {
 
             /* If the observer is already attached, return. */
-            for (LogsListener observer : listeners)
+            for (int i = 0; i < listeners.length; i++) {
+                LogsListener observer = listeners[i];
                 if (observer != null && observer.equals(listener)) return ourInstance;
+            }
 
             /* Insert the observer at the first available slot. */
-            for (int i = 0; i < listeners.length; i++) {
+            for (int i = 0; i < listeners.length; i++)
                 if (listeners[i] == null) {
                     listeners[i] = listener;
                     return ourInstance;
                 }
-            }
         } else {
             listeners = new LogsListener[Constants.MAX_LOGS_LISTENERS_COUNT];
             listeners[0] = listener;
             mObservers.put(userId, listeners);
         }
+
         return ourInstance;
     }
 
@@ -87,15 +91,12 @@ public class LogsPresenter {
         LogsListener listener = (LogsListener) component;
         LogsListener[] listeners = mObservers.get(userId);
         if (listeners != null) {
-            for (int i = 0; i < listeners.length; i++) {
-                if (listeners[i] != null && listeners[i].equals(listener)) {
+            for (int i = 0; i < listeners.length; i++)
+                if (listeners[i] != null && listeners[i].equals(listener))
                     listeners[i] = null;
-                }
-            }
 
             /* If there is at least one observer attached, return. */
-            for (int i = 0; i < listeners.length; i++)
-                if (listeners[i] != null) return ourInstance;
+            for (int i = 0; i < listeners.length; i++) if (listeners[i] != null) return ourInstance;
 
             mObservers.remove(userId);
             stopSync(userId);
@@ -103,14 +104,17 @@ public class LogsPresenter {
             /* If there are no observers, free the memory for garbage collection. */
             if (mObservers.size() == 0) ourInstance = null;
             else {
-                for (LogsListener[] listenerArray : mObservers.values()) {
-                    for (LogsListener observer : listenerArray) {
-                        if (observer != null) return ourInstance;
-                    }
-                }
+                Collection<LogsListener[]> listenerArrays = mObservers.values();
+                if (listenerArrays.size() > 0)
+                    for (LogsListener[] listenerArray : listenerArrays)
+                        for (int i = 0; i < listenerArray.length; i++) {
+                            LogsListener observer = listenerArray[i];
+                            if (observer != null) return ourInstance;
+                        }
                 ourInstance = null;
             }
         }
+
         return ourInstance;
     }
 
@@ -173,12 +177,8 @@ public class LogsPresenter {
                      * remove all of them.
                      */
                     if (count == 0) {
-                        if (logs.size() > 0) {
-                            for (Log log : logs) {
-                                logs.remove(log);
-                            }
-                            notifyObservers(userId, Constants.CALLBACK_COMPLETE_LOADING);
-                        }
+                        for (int i = 0; i < logs.size(); i++) logs.remove(i);
+                        notifyObservers(userId, Constants.CALLBACK_COMPLETE_LOADING);
                     } else if (count > 0) {
 
                         /*
@@ -224,7 +224,8 @@ public class LogsPresenter {
                                     if (updatedLogs.size() == limit) {
                                         if (logs.size() > limit) {
                                             List<Log> removedLogs = new ArrayList<>(logs);
-                                            for (Log removedLog : removedLogs) {
+                                            for (int i = 0; i < removedLogs.size(); i++) {
+                                                Log removedLog = removedLogs.get(i);
                                                 Log log = new Log(removedLog);
                                                 int removedIndex = logs.indexOf(removedLog);
                                                 logs.remove(removedLog);
@@ -301,12 +302,14 @@ public class LogsPresenter {
     }
 
     public LogsPresenter sync() {
-        for (String userId : mCountReferences.keySet()) sync(userId);
+        Set<String> keys = mCountReferences.keySet();
+        if (keys.size() > 0) for (String userId : keys) sync(userId);
         return ourInstance;
     }
 
     public LogsPresenter stopSync() {
-        for (String userId : mCountReferences.keySet()) stopSync(userId);
+        Set<String> keys = mCountReferences.keySet();
+        if (keys.size() > 0) for (String userId : keys) stopSync(userId);
         return ourInstance;
     }
 
@@ -335,8 +338,9 @@ public class LogsPresenter {
     private void notifyObservers(String userId, String event, int index, Log log) {
         LogsListener[] listeners = mObservers.get(userId);
         if (listeners != null) {
-            for (LogsListener listener : listeners) {
-                if (listener != null) {
+            for (int i = 0; i < listeners.length; i++) {
+                LogsListener listener = listeners[i];
+                if (listener != null)
                     switch (event) {
                         case Constants.CALLBACK_INITIAL_LOADING:
                             listener.onLogsInitialization(userId);
@@ -357,7 +361,6 @@ public class LogsPresenter {
                             listener.onCompleteLogsLoading(userId);
                             break;
                     }
-                }
             }
         }
     }

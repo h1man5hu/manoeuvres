@@ -72,16 +72,18 @@ public class FacebookFriendsPresenter {
         FacebookFriendsListener listener = (FacebookFriendsListener) component;
 
         /* If the observer is already attached, return. */
-        for (FacebookFriendsListener observer : mObservers)
+        for (int i = 0; i < mObservers.length; i++) {
+            FacebookFriendsListener observer = mObservers[i];
             if (observer != null && observer.equals(listener)) return ourInstance;
+        }
 
         /* Insert the observer at the first available slot. */
-        for (int i = 0; i < mObservers.length; i++) {
+        for (int i = 0; i < mObservers.length; i++)
             if (mObservers[i] == null) {
                 mObservers[i] = listener;
                 return ourInstance;
             }
-        }
+
         return ourInstance;
     }
 
@@ -94,12 +96,11 @@ public class FacebookFriendsPresenter {
             return null;
         }
 
-        for (int i = 0; i < mObservers.length; i++) {
+        for (int i = 0; i < mObservers.length; i++)
             if (mObservers[i] != null && mObservers[i].equals(listener)) {
                 mObservers[i] = null;
                 return ourInstance;
             }
-        }
 
         return ourInstance;
     }
@@ -202,8 +203,9 @@ public class FacebookFriendsPresenter {
     }
 
     private void notifyObservers(String event) {
-        for (FacebookFriendsListener listener : mObservers) {
-            if (listener != null) {
+        for (int i = 0; i < mObservers.length; i++) {
+            FacebookFriendsListener listener = mObservers[i];
+            if (listener != null)
                 switch (event) {
                     case Constants.CALLBACK_START_LOADING:
                         listener.onStartFacebookFriendsLoading();
@@ -217,7 +219,6 @@ public class FacebookFriendsPresenter {
                         listener.onCompleteFacebookFriendsLoading();
                         break;
                 }
-            }
         }
     }
 
