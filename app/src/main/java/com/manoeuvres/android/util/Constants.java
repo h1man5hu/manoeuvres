@@ -91,7 +91,7 @@ public class Constants {
 
     public static final int MAX_NETWORK_LISTENERS_COUNT = 2;
     public static final int MAX_FACEBOOK_FRIENDS_LISTENERS_COUNT = 0;
-    public static final int MAX_FOLLOWERS_LISTENERS_COUNT = 0;
+    public static final int MAX_FOLLOWERS_LISTENERS_COUNT = 1;
     public static final int MAX_FOLLOWING_LISTENERS_COUNT = 4;
     public static final int MAX_REQUESTS_LISTENERS_COUNT = 2;
     public static final int MAX_SEEN_FOLLOWING_LISTENERS_COUNT = 0;
