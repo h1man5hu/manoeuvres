@@ -224,9 +224,12 @@ public class LogsPresenter {
                                     if (updatedLogs.size() == limit) {
                                         if (logs.size() > limit) {
                                             List<Log> removedLogs = new ArrayList<>(logs);
+                                            Log log = new Log();
                                             for (int i = 0; i < removedLogs.size(); i++) {
                                                 Log removedLog = removedLogs.get(i);
-                                                Log log = new Log(removedLog);
+                                                log.setMoveId(removedLog.getMoveId());
+                                                log.setStartTime(removedLog.getStartTime());
+                                                log.setEndTime(removedLog.getEndTime());
                                                 int removedIndex = logs.indexOf(removedLog);
                                                 logs.remove(removedLog);
                                                 notifyObservers(userId, Constants.CALLBACK_REMOVE_DATA, removedIndex, log);

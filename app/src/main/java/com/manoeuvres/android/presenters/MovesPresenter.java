@@ -192,7 +192,7 @@ public class MovesPresenter {
                          * The subtraction will be done when all the moves have been retrieved from the
                          * Firebase database.
                          */
-                            final ArrayMap<String, Move> updatedMoves = new ArrayMap<String, Move>();
+                            final ArrayMap<String, Move> updatedMoves = new ArrayMap<>();
 
                             ChildEventListener movesListener = mDataListeners.get(userId);
                             if (movesListener == null) {
@@ -205,7 +205,7 @@ public class MovesPresenter {
                                             Move newMove = dataSnapshot.getValue(Move.class);
                                             ArrayMap<String, Move> moves;
                                             if (!mMoves.containsKey(userId)) {
-                                                moves = new ArrayMap<String, Move>();
+                                                moves = new ArrayMap<>();
                                                 moves.put(key, newMove);
                                                 mMoves.put(userId, moves);
                                             } else {
@@ -230,12 +230,17 @@ public class MovesPresenter {
                                                         removedMoves.remove(moveId);
 
                                                     keys = removedMoves.keySet();
-                                                    if (keys.size() > 0)
+                                                    if (keys.size() > 0) {
+                                                        Move removedMove = new Move();
                                                         for (String moveId : keys) {
-                                                            Move removedMove = new Move(moves.get(moveId));
+                                                            Move move = moves.get(moveId);
+                                                            removedMove.setName(move.getName());
+                                                            removedMove.setPresent(move.getPresent());
+                                                            removedMove.setPast(move.getPast());
                                                             moves.remove(moveId);
                                                             notifyObservers(userId, Constants.CALLBACK_REMOVE_DATA, moveId, removedMove);
                                                         }
+                                                    }
                                                 }
                                                 notifyObservers(userId, Constants.CALLBACK_COMPLETE_LOADING);
                                             }

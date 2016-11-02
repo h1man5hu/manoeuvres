@@ -73,9 +73,13 @@ public class SeenRequestsPresenter {
                 @Override
                 public void onDataChange(DataSnapshot dataSnapshot) {
                     mSeenRequests.clear();
-                    if (dataSnapshot.hasChildren())
-                        for (DataSnapshot snapshot : dataSnapshot.getChildren())
-                            mSeenRequests.add(new Friend(snapshot.getValue().toString()));
+                    if (dataSnapshot.hasChildren()) {
+                        Friend friend = new Friend();
+                        for (DataSnapshot snapshot : dataSnapshot.getChildren()) {
+                            friend.setFirebaseId(snapshot.getValue().toString());
+                            mSeenRequests.add(friend);
+                        }
+                    }
                 }
 
                 @Override

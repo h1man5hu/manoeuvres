@@ -113,9 +113,10 @@ public class FollowingPresenter {
                      */
                     if (count == 0) {
                         if (mFollowing.size() > 0) {
+                            Friend friend = new Friend();
                             for (int i = 0; i < mFollowing.size(); i++) {
                                 Friend removedFriend = mFollowing.get(i);
-                                Friend friend = new Friend(removedFriend.getFirebaseId());
+                                friend.setFirebaseId(removedFriend.getFirebaseId());
                                 mFollowing.remove(removedFriend);
                                 notifyObservers(Constants.CALLBACK_REMOVE_DATA, mFollowing.indexOf(friend), friend);
                             }
@@ -171,7 +172,7 @@ public class FollowingPresenter {
                                                     removedFollowing.removeAll(updatedFollowing);
                                                     for (int i = 0; i < removedFollowing.size(); i++) {
                                                         Friend removedFriend = removedFollowing.get(i);
-                                                        friend = new Friend(removedFriend.getFirebaseId());
+                                                        friend.setFirebaseId(removedFriend.getFirebaseId());
                                                         index = mFollowing.indexOf(removedFriend);
                                                         mFollowing.remove(removedFriend);
                                                         notifyObservers(Constants.CALLBACK_REMOVE_DATA, index, friend);
