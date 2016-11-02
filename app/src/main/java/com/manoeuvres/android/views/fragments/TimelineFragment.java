@@ -276,7 +276,7 @@ public class TimelineFragment extends Fragment implements MovesListener, LogsLis
         mProgressBar.setVisibility(View.INVISIBLE);
         mLoadingTextView.setVisibility(View.INVISIBLE);
         mRecyclerView.setVisibility(View.VISIBLE);
-        if (mNetworkMonitor.isNetworkConnected()) mFab.show();
+        if (mNetworkMonitor.isNetworkConnected() && !mIsFriend) mFab.show();
     }
 
     @Override
