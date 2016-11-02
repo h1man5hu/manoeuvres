@@ -219,7 +219,8 @@ public class MainActivity extends AppCompatActivity
 
         /* If the user is viewing the timeline of the friend which was removed, destroy the timeline fragment. */
         Fragment fragment = mFragmentManager.findFragmentByTag(UniqueId.getTimelineFragmentTag(removedFriend));
-        if (fragment != null) popBackStack();
+        if (fragment != null)
+            mFragmentManager.popBackStack(null, FragmentManager.POP_BACK_STACK_INCLUSIVE);
     }
 
     @Override
@@ -257,7 +258,7 @@ public class MainActivity extends AppCompatActivity
                 || mNavigationMenu.findItem(R.id.nav_following).isChecked()
                 || mNavigationMenu.findItem(R.id.nav_find_friends).isChecked()
                 || mNavigationMenu.findItem(R.id.nav_requests).isChecked()) {
-            popBackStack();
+            mFragmentManager.popBackStack(null, FragmentManager.POP_BACK_STACK_INCLUSIVE);
         }
         runOnUiThread(new Runnable() {
             @Override
@@ -274,22 +275,11 @@ public class MainActivity extends AppCompatActivity
     @Override
     public void onBackPressed() {
         DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
-        if (drawer.isDrawerOpen(GravityCompat.START)) {
-            drawer.closeDrawer(GravityCompat.START);
-        } else {
+        if (drawer.isDrawerOpen(GravityCompat.START)) drawer.closeDrawer(GravityCompat.START);
+        else if (mFragmentManager.getBackStackEntryCount() > 0)
             /* The back button should always take the user to the timeline. */
-            popBackStack();
-        }
-    }
-
-    private void popBackStack() {
-        int count = mFragmentManager.getBackStackEntryCount();
-        if (count > 0) {
-            do {
-                mFragmentManager.popBackStack();
-                count--;
-            } while (count > 0);
-        } else super.onBackPressed();
+            mFragmentManager.popBackStack(null, FragmentManager.POP_BACK_STACK_INCLUSIVE);
+        else super.onBackPressed();
     }
 
     @SuppressWarnings("StatementWithEmptyBody")
@@ -351,7 +341,8 @@ public class MainActivity extends AppCompatActivity
                 if (fragment == null) {
                     fragment = TimelineFragment.newInstance(mUser.getUid(), mUser.getDisplayName());
                     mFragmentManager.beginTransaction().replace(R.id.content_main, fragment, Constants.TAG_FRAGMENT_TIMELINE).commit();
-                } else popBackStack();
+                } else
+                    mFragmentManager.popBackStack(null, FragmentManager.POP_BACK_STACK_INCLUSIVE);
                 mFab.show();
             }
         }
