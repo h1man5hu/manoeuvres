@@ -1,7 +1,7 @@
 package com.manoeuvres.android.util;
 
 
-import com.manoeuvres.android.models.Friend;
+import com.manoeuvres.android.friends.Friend;
 
 
 public class UniqueId {

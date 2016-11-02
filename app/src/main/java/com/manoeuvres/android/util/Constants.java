@@ -74,7 +74,7 @@ public class Constants {
     public static final String NOTIFICATION_TYPE_FOLLOWING = "followingNotification";
     public static final String NOTIFICATION_TYPE_LOG = "logNotification";
 
-    public static final String KEY_EXTRA_NOTIFICATION_SERVICE = "com.manoeuvres.android.services.NotificationService";
+    public static final String KEY_EXTRA_NOTIFICATION_SERVICE = "com.manoeuvres.android.notifications.NotificationService";
 
     public static final String CALLBACK_INITIAL_LOADING = "initialLoad";
     public static final String CALLBACK_START_LOADING = "startLoad";
