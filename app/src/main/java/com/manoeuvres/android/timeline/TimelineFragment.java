@@ -283,10 +283,12 @@ public class TimelineFragment extends Fragment implements MovesListener, LogsLis
         super.onStop();
 
         /* Update the cache of logs and moves for this user. */
-        SharedPreferences.Editor editor = mSharedPreferences.edit();
-        editor.putString(UniqueId.getLogsDataKey(mCurrentUserId), mGson.toJson(mLogsPresenter.getAll(mCurrentUserId)));
-        editor.putString(UniqueId.getMovesDataKey(mCurrentUserId), mGson.toJson(mMovesPresenter.getAll(mCurrentUserId)));
-        editor.apply();
+        if (!mMainActivity.isFinishing()) {
+            mSharedPreferences.edit()
+                    .putString(UniqueId.getLogsDataKey(mCurrentUserId), mGson.toJson(mLogsPresenter.getAll(mCurrentUserId)))
+                    .putString(UniqueId.getMovesDataKey(mCurrentUserId), mGson.toJson(mMovesPresenter.getAll(mCurrentUserId)))
+                    .apply();
+        }
 
         mNetworkMonitor.detach(this);
         mMovesPresenter.detach(this, mCurrentUserId);

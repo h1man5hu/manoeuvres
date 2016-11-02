@@ -29,10 +29,12 @@ import android.widget.TextView;
 
 import com.facebook.FacebookSdk;
 import com.facebook.appevents.AppEventsLogger;
+import com.facebook.login.LoginManager;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.gson.Gson;
 import com.manoeuvres.android.R;
+import com.manoeuvres.android.login.LoginActivity;
 import com.manoeuvres.android.timeline.logs.Log;
 import com.manoeuvres.android.timeline.moves.Move;
 import com.manoeuvres.android.database.DatabaseHelper;
@@ -299,7 +301,12 @@ public class MainActivity extends AppCompatActivity
         } else if (id == R.id.nav_requests) {
             startFriendsFragment(Constants.FRAGMENT_REQUESTS, id);
         } else if (id == R.id.nav_log_out) {
-            return false;
+            startActivity(new Intent(MainActivity.this, LoginActivity.class));
+            stopService(new Intent(MainActivity.this, NotificationService.class));
+            FirebaseAuth.getInstance().signOut();
+            LoginManager.getInstance().logOut();
+            mSharedPreferences.edit().clear().apply();
+            finish();
         } else {
             startTimelineFragment(true, id);
         }
@@ -398,11 +405,13 @@ public class MainActivity extends AppCompatActivity
         super.onStop();
 
         /* Update the cache of friends the user is following and the status of latest log. */
-        SharedPreferences.Editor editor = mSharedPreferences.edit();
-        String following = mGson.toJson(mFollowingPresenter.getAll());
-        editor.putString(Constants.KEY_SHARED_PREF_MENU_ITEMS_FOLLOWING, following);
-        editor.putBoolean(Constants.KEY_SHARED_PREF_IS_MOVE_IN_PROGRESS, mLatestLogPresenter.isInProgress(mUser.getUid()));
-        editor.apply();
+        if (!isFinishing()) {
+            String following = mGson.toJson(mFollowingPresenter.getAll());
+            mSharedPreferences.edit()
+                    .putString(Constants.KEY_SHARED_PREF_MENU_ITEMS_FOLLOWING, following)
+                    .putBoolean(Constants.KEY_SHARED_PREF_IS_MOVE_IN_PROGRESS, mLatestLogPresenter.isInProgress(mUser.getUid()))
+                    .apply();
+        }
 
         mNetworkMonitor.detach(this);
         mLatestLogPresenter.detach(this, mUser.getUid());
