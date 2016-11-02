@@ -4,6 +4,8 @@ package com.manoeuvres.android.presenters;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.preference.PreferenceManager;
+import android.support.v4.util.ArrayMap;
+import android.support.v4.util.SimpleArrayMap;
 
 import com.google.firebase.database.ChildEventListener;
 import com.google.firebase.database.DataSnapshot;
@@ -17,11 +19,7 @@ import com.manoeuvres.android.util.Constants;
 import com.manoeuvres.android.util.UniqueId;
 
 import java.lang.reflect.Type;
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 public class MovesPresenter {
@@ -31,33 +29,33 @@ public class MovesPresenter {
      * A log is bound to a move with its moveId. A moveId is the push id of the move.
      * The map stores the push id of the move as the key to the move.
      */
-    private Map<String, Map<String, Move>> mMoves;
+    private SimpleArrayMap<String, ArrayMap<String, Move>> mMoves;
 
-    private Map<String, DatabaseReference> mCountReferences;
-    private Map<String, DatabaseReference> mDataReferences;
+    private ArrayMap<String, DatabaseReference> mCountReferences;
+    private SimpleArrayMap<String, DatabaseReference> mDataReferences;
 
-    private Map<String, ValueEventListener> mCountListeners;
-    private Map<String, ChildEventListener> mDataListeners;
+    private SimpleArrayMap<String, ValueEventListener> mCountListeners;
+    private SimpleArrayMap<String, ChildEventListener> mDataListeners;
 
-    private Map<String, MovesListener[]> mObservers;
+    private ArrayMap<String, MovesListener[]> mObservers;
 
     private SharedPreferences mSharedPreferences;
     private Gson mGson;
 
-    private Map<String, Boolean> mIsLoaded;
+    private SimpleArrayMap<String, Boolean> mIsLoaded;
 
     private MovesPresenter(Context applicationContext) {
         mSharedPreferences = PreferenceManager.getDefaultSharedPreferences(applicationContext);
         mGson = new Gson();
 
         int capacity = Constants.INITIAL_COLLECTION_CAPACITY_FOLLOWING + 1;
-        mCountReferences = new HashMap<>(capacity);
-        mCountListeners = new HashMap<>(capacity);
-        mDataReferences = new HashMap<>(capacity);
-        mDataListeners = new HashMap<>(capacity);
-        mObservers = new HashMap<>(capacity);
-        mMoves = new HashMap<>(capacity);
-        mIsLoaded = new HashMap<>(capacity);
+        mCountReferences = new ArrayMap<>(capacity);
+        mCountListeners = new SimpleArrayMap<>(capacity);
+        mDataReferences = new SimpleArrayMap<>(capacity);
+        mDataListeners = new SimpleArrayMap<>(capacity);
+        mObservers = new ArrayMap<>(capacity);
+        mMoves = new SimpleArrayMap<>(capacity);
+        mIsLoaded = new SimpleArrayMap<>(capacity);
     }
 
     public static MovesPresenter getInstance(Context applicationContext) {
@@ -126,13 +124,13 @@ public class MovesPresenter {
          * Caching: Load the moves associated to the current user from the shared preferences file.
          * Update the list when network can be accessed.
          */
-        Map<String, Move> moves = mMoves.get(userId);
+        ArrayMap<String, Move> moves = mMoves.get(userId);
         if (moves == null || moves.size() == 0) {
             String movesList = mSharedPreferences.getString(UniqueId.getMovesDataKey(userId), "");
-            Type type = new TypeToken<Map<String, Move>>() {
+            Type type = new TypeToken<ArrayMap<String, Move>>() {
             }.getType();
             moves = mGson.fromJson(movesList, type);
-            if (moves == null) moves = new HashMap<>();
+            if (moves == null) moves = new ArrayMap<>();
 
             mMoves.put(userId, moves);
         }
@@ -162,7 +160,7 @@ public class MovesPresenter {
         if (movesCountListener == null) {
             notifyObservers(userId, Constants.CALLBACK_START_LOADING);
 
-            final Map<String, Move> moves = mMoves.get(userId);
+            final ArrayMap<String, Move> moves = mMoves.get(userId);
             /* If there is no cache, display progress until the data is loaded from the network. */
             if (moves != null && moves.size() == 0)
                 notifyObservers(userId, Constants.CALLBACK_INITIAL_LOADING);
@@ -194,7 +192,7 @@ public class MovesPresenter {
                          * The subtraction will be done when all the moves have been retrieved from the
                          * Firebase database.
                          */
-                            final Map<String, Move> updatedMoves = new HashMap<>();
+                            final ArrayMap<String, Move> updatedMoves = new ArrayMap<String, Move>();
 
                             ChildEventListener movesListener = mDataListeners.get(userId);
                             if (movesListener == null) {
@@ -205,9 +203,9 @@ public class MovesPresenter {
                                         public void onChildAdded(DataSnapshot dataSnapshot, String s) {
                                             String key = dataSnapshot.getKey();
                                             Move newMove = dataSnapshot.getValue(Move.class);
-                                            Map<String, Move> moves;
+                                            ArrayMap<String, Move> moves;
                                             if (!mMoves.containsKey(userId)) {
-                                                moves = new HashMap<>();
+                                                moves = new ArrayMap<String, Move>();
                                                 moves.put(key, newMove);
                                                 mMoves.put(userId, moves);
                                             } else {
@@ -226,7 +224,7 @@ public class MovesPresenter {
                                     */
                                             if (updatedMoves.size() == count) {
                                                 if (moves.size() > count) {
-                                                    Map<String, Move> removedMoves = new HashMap<>(moves);
+                                                    ArrayMap<String, Move> removedMoves = new ArrayMap<>(moves);
                                                     Set<String> keys = updatedMoves.keySet();
                                                     if (keys.size() > 0) for (String moveId : keys)
                                                         removedMoves.remove(moveId);
@@ -247,7 +245,7 @@ public class MovesPresenter {
                                         public void onChildChanged(DataSnapshot dataSnapshot, String s) {
                                             String key = dataSnapshot.getKey();
                                             Move updatedMove = dataSnapshot.getValue(Move.class);
-                                            Map<String, Move> moves = mMoves.get(userId);
+                                            ArrayMap<String, Move> moves = mMoves.get(userId);
                                             if (moves != null) {
                                                 moves.put(key, updatedMove);
                                                 notifyObservers(userId, Constants.CALLBACK_CHANGE_DATA, key, updatedMove);
@@ -257,7 +255,7 @@ public class MovesPresenter {
                                         @Override
                                         public void onChildRemoved(DataSnapshot dataSnapshot) {
                                             String key = dataSnapshot.getKey();
-                                            Map<String, Move> moves = mMoves.get(userId);
+                                            ArrayMap<String, Move> moves = mMoves.get(userId);
                                             if (moves != null) {
                                                 if (moves.containsKey(key)) {
                                                     Move removedMove = new Move(moves.get(key));
@@ -332,20 +330,20 @@ public class MovesPresenter {
     }
 
     public Move get(String userId, String moveId) {
-        Map<String, Move> moves = mMoves.get(userId);
+        ArrayMap<String, Move> moves = mMoves.get(userId);
         if (moves != null) return moves.get(moveId);
         return null;
     }
 
-    public Map<String, Move> getAll(String userId) {
+    public ArrayMap<String, Move> getAll(String userId) {
         return mMoves.get(userId);
     }
 
     public String getKey(String userID, Move move) {
-        Map<String, Move> moves = mMoves.get(userID);
+        ArrayMap<String, Move> moves = mMoves.get(userID);
         if (moves != null && moves.size() > 0) {
-            Set<Map.Entry<String, Move>> moveEntrySet = moves.entrySet();
-            if (moveEntrySet.size() > 0) for (Map.Entry<String, Move> entry : moveEntrySet)
+            Set<ArrayMap.Entry<String, Move>> moveEntrySet = moves.entrySet();
+            if (moveEntrySet.size() > 0) for (ArrayMap.Entry<String, Move> entry : moveEntrySet)
                 if (entry.getValue().equals(move)) return entry.getKey();
         }
         return null;

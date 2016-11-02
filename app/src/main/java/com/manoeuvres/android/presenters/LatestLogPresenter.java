@@ -4,6 +4,8 @@ package com.manoeuvres.android.presenters;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.preference.PreferenceManager;
+import android.support.v4.util.ArrayMap;
+import android.support.v4.util.SimpleArrayMap;
 
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
@@ -14,22 +16,18 @@ import com.manoeuvres.android.models.Log;
 import com.manoeuvres.android.util.Constants;
 import com.manoeuvres.android.util.UniqueId;
 
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 public class LatestLogPresenter {
     private static LatestLogPresenter ourInstance;
 
-    private Map<String, Log> mLatestLogs;
+    private SimpleArrayMap<String, Log> mLatestLogs;
 
-    private Map<String, LatestLogListener[]> mObservers;
+    private ArrayMap<String, LatestLogListener[]> mObservers;
 
-    private Map<String, DatabaseReference> mReferences;
-    private Map<String, ValueEventListener> mListeners;
+    private ArrayMap<String, DatabaseReference> mReferences;
+    private SimpleArrayMap<String, ValueEventListener> mListeners;
 
     private SharedPreferences mSharedPreferences;
     private Gson mGson;
@@ -39,10 +37,10 @@ public class LatestLogPresenter {
         mGson = new Gson();
 
         int capacity = Constants.INITIAL_COLLECTION_CAPACITY_FOLLOWING + 1;
-        mObservers = new HashMap<>(capacity);
-        mLatestLogs = new HashMap<>(capacity);
-        mListeners = new HashMap<>(capacity);
-        mReferences = new HashMap<>(capacity);
+        mObservers = new ArrayMap<>(capacity);
+        mLatestLogs = new SimpleArrayMap<>(capacity);
+        mListeners = new SimpleArrayMap<>(capacity);
+        mReferences = new ArrayMap<>(capacity);
     }
 
     public static LatestLogPresenter getInstance(Context applicationContext) {

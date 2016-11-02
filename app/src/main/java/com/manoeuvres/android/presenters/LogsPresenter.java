@@ -4,6 +4,8 @@ package com.manoeuvres.android.presenters;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.preference.PreferenceManager;
+import android.support.v4.util.ArrayMap;
+import android.support.v4.util.SimpleArrayMap;
 
 import com.google.firebase.database.ChildEventListener;
 import com.google.firebase.database.DataSnapshot;
@@ -19,41 +21,39 @@ import com.manoeuvres.android.util.UniqueId;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 public class LogsPresenter {
     private static LogsPresenter ourInstance;
 
-    private Map<String, List<Log>> mLogs;
+    private SimpleArrayMap<String, List<Log>> mLogs;
 
-    private Map<String, DatabaseReference> mCountReferences;
-    private Map<String, DatabaseReference> mDataReferences;
+    private ArrayMap<String, DatabaseReference> mCountReferences;
+    private SimpleArrayMap<String, DatabaseReference> mDataReferences;
 
-    private Map<String, ValueEventListener> mCountListeners;
-    private Map<String, ChildEventListener> mDataListeners;
+    private SimpleArrayMap<String, ValueEventListener> mCountListeners;
+    private SimpleArrayMap<String, ChildEventListener> mDataListeners;
 
-    private Map<String, LogsListener[]> mObservers;
+    private ArrayMap<String, LogsListener[]> mObservers;
 
     private SharedPreferences mSharedPreferences;
     private Gson mGson;
 
-    private Map<String, Boolean> mIsLoaded;
+    private SimpleArrayMap<String, Boolean> mIsLoaded;
 
     private LogsPresenter(Context applicationContext) {
         mSharedPreferences = PreferenceManager.getDefaultSharedPreferences(applicationContext);
         mGson = new Gson();
 
         int capacity = Constants.INITIAL_COLLECTION_CAPACITY_FOLLOWING + 1;
-        mLogs = new HashMap<>(capacity);
-        mCountReferences = new HashMap<>(capacity);
-        mDataReferences = new HashMap<>(capacity);
-        mCountListeners = new HashMap<>(capacity);
-        mDataListeners = new HashMap<>(capacity);
-        mObservers = new HashMap<>(capacity);
-        mIsLoaded = new HashMap<>(capacity);
+        mLogs = new SimpleArrayMap<>(capacity);
+        mCountReferences = new ArrayMap<>(capacity);
+        mDataReferences = new SimpleArrayMap<>(capacity);
+        mCountListeners = new SimpleArrayMap<>(capacity);
+        mDataListeners = new SimpleArrayMap<>(capacity);
+        mObservers = new ArrayMap<>(capacity);
+        mIsLoaded = new SimpleArrayMap<>(capacity);
     }
 
     public static LogsPresenter getInstance(Context applicationContext) {
