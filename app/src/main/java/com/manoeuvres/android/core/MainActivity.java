@@ -298,8 +298,6 @@ public class MainActivity extends AppCompatActivity
             startFriendsFragment(Constants.FRAGMENT_FIND_FRIENDS, id);
         } else if (id == R.id.nav_requests) {
             startFriendsFragment(Constants.FRAGMENT_REQUESTS, id);
-        } else if (id == R.id.nav_settings) {
-            return false;
         } else if (id == R.id.nav_log_out) {
             return false;
         } else {
