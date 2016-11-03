@@ -277,6 +277,7 @@ public class FollowingPresenter {
     }
 
     private void notifyObservers(String event, int index, Friend friend) {
+        if (event.equals(Constants.CALLBACK_COMPLETE_LOADING)) mIsLoaded = true;
         for (int i = 0; i < mObservers.length; i++) {
             FollowingListener listener = mObservers[i];
             if (listener != null)
@@ -296,7 +297,6 @@ public class FollowingPresenter {
                     case Constants.CALLBACK_REMOVE_DATA:
                         listener.onFollowingRemoved(index, friend);
                     case Constants.CALLBACK_COMPLETE_LOADING:
-                        mIsLoaded = true;
                         listener.onCompleteFollowingLoading();
                         break;
                 }

@@ -96,7 +96,6 @@ public class RequestsPresenter {
                                     }
 
                                     if (mRequests.size() == count) {
-                                        mIsLoaded = true;
                                         notifyObservers(Constants.CALLBACK_COMPLETE_LOADING);
                                     }
                                 }
@@ -111,8 +110,7 @@ public class RequestsPresenter {
                                     }
 
                                     if (mRequests.size() == count) {
-                                        mIsLoaded = true;
-                                        notifyObservers(Constants.CALLBACK_REMOVE_DATA, index, friend);
+                                        notifyObservers(Constants.CALLBACK_COMPLETE_LOADING, index, friend);
                                     }
                                 }
 
@@ -181,6 +179,7 @@ public class RequestsPresenter {
     }
 
     private void notifyObservers(String event, int index, Friend friend) {
+        if (event.equals(Constants.CALLBACK_COMPLETE_LOADING)) mIsLoaded = true;
         for (int i = 0; i < mObservers.length; i++) {
             RequestsListener listener = mObservers[i];
             if (listener != null)
@@ -197,7 +196,6 @@ public class RequestsPresenter {
                     case Constants.CALLBACK_REMOVE_DATA:
                         listener.onRequestRemoved(index, friend);
                     case Constants.CALLBACK_COMPLETE_LOADING:
-                        mIsLoaded = true;
                         listener.onCompleteRequestsLoading();
                         break;
                 }

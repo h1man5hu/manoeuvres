@@ -162,7 +162,7 @@ public class MovesPresenter {
 
             final ArrayMap<String, Move> moves = mMoves.get(userId);
             /* If there is no cache, display progress until the data is loaded from the network. */
-            if (moves != null && moves.size() == 0)
+            if (moves == null || moves.size() == 0)
                 notifyObservers(userId, Constants.CALLBACK_INITIAL_LOADING);
 
             DatabaseReference countReference = mCountReferences.get(userId);

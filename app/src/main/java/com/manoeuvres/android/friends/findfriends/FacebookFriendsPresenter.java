@@ -203,6 +203,7 @@ public class FacebookFriendsPresenter {
     }
 
     private void notifyObservers(String event) {
+        if (event.equals(Constants.CALLBACK_COMPLETE_LOADING)) isLoaded = true;
         for (int i = 0; i < mObservers.length; i++) {
             FacebookFriendsListener listener = mObservers[i];
             if (listener != null)
@@ -214,7 +215,6 @@ public class FacebookFriendsPresenter {
                         listener.onFacebookFriendsInitialization();
                         break;
                     case Constants.CALLBACK_COMPLETE_LOADING:
-                        isLoaded = true;
                         mSharedPreferences.edit().putString(Constants.KEY_SHARED_PREF_DATA_FRIENDS, mGson.toJson(mFriends)).apply();
                         listener.onCompleteFacebookFriendsLoading();
                         break;

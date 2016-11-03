@@ -108,6 +108,9 @@ public class FollowersPresenter {
                                         mFollowers.remove(index);
                                         notifyObservers(Constants.CALLBACK_REMOVE_DATA, index, friend);
                                     }
+
+                                    if (mFollowers.size() == count)
+                                        notifyObservers(Constants.CALLBACK_COMPLETE_LOADING);
                                 }
 
                                 @Override
@@ -171,6 +174,7 @@ public class FollowersPresenter {
     }
 
     private void notifyObservers(String event, int index, Friend friend) {
+        if (event.equals(Constants.CALLBACK_COMPLETE_LOADING)) mIsLoaded = true;
         for (int i = 0; i < mObservers.length; i++) {
             FollowersListener listener = mObservers[i];
             if (listener != null)
@@ -188,7 +192,6 @@ public class FollowersPresenter {
                         listener.onFollowerRemoved(index, friend);
                         break;
                     case Constants.CALLBACK_COMPLETE_LOADING:
-                        mIsLoaded = true;
                         listener.onCompleteFollowersLoading();
                         break;
                 }

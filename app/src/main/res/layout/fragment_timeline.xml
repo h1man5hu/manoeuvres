@@ -6,7 +6,7 @@
                                              tools:context=".timeline.TimelineFragment">
 
     <TextView
-        android:id="@+id/textView_loading_logs"
+        android:id="@+id/textView_background_logs"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginBottom="16dp"
@@ -16,11 +16,12 @@
         android:layout_marginStart="16dp"
         android:layout_marginTop="16dp"
         android:text="@string/textview_loading_logs"
+        android:textAlignment="center"
         android:textSize="@dimen/text_size_loading"
         android:visibility="invisible"
-        app:layout_constraintBottom_toBottomOf="@+id/recycler_view_timeline"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintLeft_toLeftOf="parent"
-        app:layout_constraintRight_toRightOf="@+id/recycler_view_timeline"
+        app:layout_constraintRight_toRightOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintVertical_bias="0.45"/>
 

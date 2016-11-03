@@ -68,13 +68,16 @@ public class TimelineFragment extends Fragment implements MovesListener, LogsLis
     private Gson mGson;
 
     private ProgressBar mProgressBar;
-    private TextView mLoadingTextView;
+    private TextView mBackgroundTextView;
 
     private boolean mIsFriend;
 
     private Snackbar mNoConnectionSnackbar;
 
     private NotificationManager mNotificationManager;
+
+    /* Display progress only when the fragment is created, not restarted. */
+    private boolean mIsRestarted;
 
     public TimelineFragment() {
         // Required empty public constructor
@@ -140,16 +143,10 @@ public class TimelineFragment extends Fragment implements MovesListener, LogsLis
         mFab = (FloatingActionButton) mMainActivity.findViewById(R.id.fab);
 
         mProgressBar = (ProgressBar) rootView.findViewById(R.id.progress_bar_timeline);
-        mLoadingTextView = (TextView) rootView.findViewById(R.id.textView_loading_logs);
+        mBackgroundTextView = (TextView) rootView.findViewById(R.id.textView_background_logs);
 
         NavigationView navigationView = (NavigationView) mMainActivity.findViewById(R.id.nav_view);
         mNavigationMenu = (NavigationMenu) navigationView.getMenu();
-
-        String formatString = getString(R.string.textview_loading_logs);
-        String nameArgument;
-        if (mIsFriend) nameArgument = mCurrentUserName + "'s";
-        else nameArgument = getString(R.string.text_loading_logs_your);
-        mLoadingTextView.setText(String.format(formatString, nameArgument));
 
         return rootView;
     }
@@ -165,14 +162,14 @@ public class TimelineFragment extends Fragment implements MovesListener, LogsLis
 
         if (menuItem != null) menuItem.setChecked(true);
 
+        mLogsPresenter = LogsPresenter.getInstance(mMainActivity.getApplicationContext())
+                .addFriend(mCurrentUserId)
+                .attach(this, mCurrentUserId);
+
         mMovesPresenter = MovesPresenter.getInstance(mMainActivity.getApplicationContext())
                 .addFriend(mCurrentUserId)
                 .attach(this, mCurrentUserId)
                 .sync(mCurrentUserId);
-
-        mLogsPresenter = LogsPresenter.getInstance(mMainActivity.getApplicationContext())
-                .addFriend(mCurrentUserId)
-                .attach(this, mCurrentUserId);
 
         if (mMovesPresenter.isLoaded(mCurrentUserId)) mLogsPresenter.sync(mCurrentUserId);
 
@@ -186,7 +183,7 @@ public class TimelineFragment extends Fragment implements MovesListener, LogsLis
 
     @Override
     public void onStartMovesLoading(String userId) {
-
+        if (mLogsPresenter.size(mCurrentUserId) == 0) showProgress();
     }
 
     @Override
@@ -267,14 +264,29 @@ public class TimelineFragment extends Fragment implements MovesListener, LogsLis
     private void showProgress() {
         mRecyclerView.setVisibility(View.INVISIBLE);
         mFab.hide();
-        mProgressBar.setVisibility(View.VISIBLE);
-        mLoadingTextView.setVisibility(View.VISIBLE);
+        if (!mIsRestarted) {
+            mProgressBar.setVisibility(View.VISIBLE);
+            String formatString = getString(R.string.textview_loading_logs);
+            String nameArgument;
+            if (mIsFriend) nameArgument = mCurrentUserName + "'s";
+            else nameArgument = getString(R.string.text_loading_logs_your);
+            mBackgroundTextView.setText(String.format(formatString, nameArgument));
+            mBackgroundTextView.setVisibility(View.VISIBLE);
+        } else if (mIsRestarted && (mLogsPresenter.size(mCurrentUserId) == 0)) hideProgress();
     }
 
     private void hideProgress() {
+        if (mLogsPresenter.size(mCurrentUserId) > 0) {
+            mRecyclerView.setVisibility(View.VISIBLE);
+            mBackgroundTextView.setVisibility(View.INVISIBLE);
+        } else {
+            if (!mIsFriend) mBackgroundTextView.setText(R.string.no_logs_user);
+            else
+                mBackgroundTextView.setText(String.format(getString(R.string.no_logs_friend), mCurrentUserName));
+            mBackgroundTextView.setVisibility(View.VISIBLE);
+            mRecyclerView.setVisibility(View.INVISIBLE);
+        }
         mProgressBar.setVisibility(View.INVISIBLE);
-        mLoadingTextView.setVisibility(View.INVISIBLE);
-        mRecyclerView.setVisibility(View.VISIBLE);
         if (mNetworkMonitor.isNetworkConnected() && !mIsFriend) mFab.show();
     }
 
@@ -293,6 +305,8 @@ public class TimelineFragment extends Fragment implements MovesListener, LogsLis
         mNetworkMonitor.detach(this);
         mMovesPresenter.detach(this, mCurrentUserId);
         mLogsPresenter.detach(this, mCurrentUserId);
+
+        mIsRestarted = true;
     }
 
     public class TimelineAdapter extends RecyclerView.Adapter<TimelineAdapter.ViewHolder> {

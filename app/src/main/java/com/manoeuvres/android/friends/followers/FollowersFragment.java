@@ -39,7 +39,7 @@ public class FollowersFragment extends Fragment implements FollowersListener {
     private Menu mNavigationMenu;
 
     private ProgressBar mProgressBar;
-    private TextView mLoadingTextView;
+    private TextView mBackgroundTextView;
 
 
     public FollowersFragment() {
@@ -75,8 +75,7 @@ public class FollowersFragment extends Fragment implements FollowersListener {
 
         mProgressBar = (ProgressBar) rootView.findViewById(R.id.progress_bar_friends);
 
-        mLoadingTextView = (TextView) rootView.findViewById(R.id.textView_loading_friends);
-        mLoadingTextView.setText(String.format(getString(R.string.textview_loading_friends), getString(R.string.text_loading_friends_followers)));
+        mBackgroundTextView = (TextView) rootView.findViewById(R.id.textView_background_friends);
 
         return rootView;
     }
@@ -94,18 +93,27 @@ public class FollowersFragment extends Fragment implements FollowersListener {
         mFollowersPresenter = FollowersPresenter.getInstance()
                 .attach(this)
                 .sync();
+
+        if (mFollowersPresenter.isLoaded()) onCompleteFollowersLoading();
     }
 
     private void showProgress() {
         mRecyclerView.setVisibility(View.INVISIBLE);
         mProgressBar.setVisibility(View.VISIBLE);
-        mLoadingTextView.setVisibility(View.VISIBLE);
+        mBackgroundTextView.setText(String.format(getString(R.string.textview_loading_friends), getString(R.string.text_loading_friends_followers)));
+        mBackgroundTextView.setVisibility(View.VISIBLE);
     }
 
     private void hideProgress() {
+        if (mFollowersPresenter.size() > 0) {
+            mRecyclerView.setVisibility(View.VISIBLE);
+            mBackgroundTextView.setVisibility(View.INVISIBLE);
+        } else {
+            mBackgroundTextView.setText(R.string.no_followers);
+            mBackgroundTextView.setVisibility(View.VISIBLE);
+            mRecyclerView.setVisibility(View.INVISIBLE);
+        }
         mProgressBar.setVisibility(View.INVISIBLE);
-        mLoadingTextView.setVisibility(View.INVISIBLE);
-        mRecyclerView.setVisibility(View.VISIBLE);
     }
 
     @Override

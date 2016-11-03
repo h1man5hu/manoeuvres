@@ -41,7 +41,7 @@ public class FollowingFragment extends Fragment implements FollowingListener {
     private Menu mNavigationMenu;
 
     private ProgressBar mProgressBar;
-    private TextView mLoadingTextView;
+    private TextView mBackgroundTextView;
 
     private NotificationManager mNotificationManager;
 
@@ -80,8 +80,7 @@ public class FollowingFragment extends Fragment implements FollowingListener {
 
         mProgressBar = (ProgressBar) rootView.findViewById(R.id.progress_bar_friends);
 
-        mLoadingTextView = (TextView) rootView.findViewById(R.id.textView_loading_friends);
-        mLoadingTextView.setText(getString(R.string.textview_loading_following));
+        mBackgroundTextView = (TextView) rootView.findViewById(R.id.textView_background_friends);
 
         return rootView;
     }
@@ -99,20 +98,28 @@ public class FollowingFragment extends Fragment implements FollowingListener {
         mFollowingPresenter = FollowingPresenter.getInstance(mMainActivity.getApplicationContext())
                 .attach(this)
                 .sync();
+
+        if (mFollowingPresenter.isLoaded()) onCompleteFollowingLoading();
     }
 
     private void showProgress() {
         mRecyclerView.setVisibility(View.INVISIBLE);
         mProgressBar.setVisibility(View.VISIBLE);
-        mLoadingTextView.setVisibility(View.VISIBLE);
+        mBackgroundTextView.setText(getString(R.string.textview_loading_following));
+        mBackgroundTextView.setVisibility(View.VISIBLE);
     }
 
     private void hideProgress() {
+        if (mFollowingPresenter.size() > 0) {
+            mRecyclerView.setVisibility(View.VISIBLE);
+            mBackgroundTextView.setVisibility(View.INVISIBLE);
+        } else {
+            mBackgroundTextView.setText(R.string.no_following);
+            mBackgroundTextView.setVisibility(View.VISIBLE);
+            mRecyclerView.setVisibility(View.INVISIBLE);
+        }
         mProgressBar.setVisibility(View.INVISIBLE);
-        mLoadingTextView.setVisibility(View.INVISIBLE);
-        mRecyclerView.setVisibility(View.VISIBLE);
     }
-
 
     @Override
     public void onStartFollowingLoading() {

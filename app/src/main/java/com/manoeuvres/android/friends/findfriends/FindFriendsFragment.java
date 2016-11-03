@@ -43,7 +43,7 @@ public class FindFriendsFragment extends Fragment implements FollowingListener {
     private Menu mNavigationMenu;
 
     private ProgressBar mProgressBar;
-    private TextView mLoadingTextView;
+    private TextView mBackgroundTextView;
 
     private List<Friend> mUnfollowedFriends;
 
@@ -80,8 +80,7 @@ public class FindFriendsFragment extends Fragment implements FollowingListener {
 
         mProgressBar = (ProgressBar) rootView.findViewById(R.id.progress_bar_friends);
 
-        mLoadingTextView = (TextView) rootView.findViewById(R.id.textView_loading_friends);
-        mLoadingTextView.setText(String.format(getString(R.string.textview_loading_friends), getString(R.string.text_loading_friends_find_friends)));
+        mBackgroundTextView = (TextView) rootView.findViewById(R.id.textView_background_friends);
 
         return rootView;
     }
@@ -113,13 +112,20 @@ public class FindFriendsFragment extends Fragment implements FollowingListener {
     private void showProgress() {
         mRecyclerView.setVisibility(View.INVISIBLE);
         mProgressBar.setVisibility(View.VISIBLE);
-        mLoadingTextView.setVisibility(View.VISIBLE);
+        mBackgroundTextView.setText(String.format(getString(R.string.textview_loading_friends), getString(R.string.text_loading_friends_find_friends)));
+        mBackgroundTextView.setVisibility(View.VISIBLE);
     }
 
     private void hideProgress() {
+        if (mFacebookFriendsPresenter.size() > 0) {
+            mRecyclerView.setVisibility(View.VISIBLE);
+            mBackgroundTextView.setVisibility(View.INVISIBLE);
+        } else {
+            mBackgroundTextView.setText(R.string.no_friends);
+            mBackgroundTextView.setVisibility(View.VISIBLE);
+            mRecyclerView.setVisibility(View.INVISIBLE);
+        }
         mProgressBar.setVisibility(View.INVISIBLE);
-        mLoadingTextView.setVisibility(View.INVISIBLE);
-        mRecyclerView.setVisibility(View.VISIBLE);
     }
 
     @Override

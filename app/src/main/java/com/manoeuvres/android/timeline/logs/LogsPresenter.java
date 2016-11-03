@@ -164,7 +164,8 @@ public class LogsPresenter {
 
             final List<Log> logs = mLogs.get(userId);
              /* If there is no cache, display progress until the data is loaded from the network. */
-            if (logs.size() == 0) notifyObservers(userId, Constants.CALLBACK_INITIAL_LOADING);
+            if (logs == null || logs.size() == 0)
+                notifyObservers(userId, Constants.CALLBACK_INITIAL_LOADING);
 
             logsCountListener = mCountReferences.get(userId).addValueEventListener(new ValueEventListener() {
                 @Override
@@ -177,7 +178,7 @@ public class LogsPresenter {
                      * remove all of them.
                      */
                     if (count == 0) {
-                        for (int i = 0; i < logs.size(); i++) logs.remove(i);
+                        if (logs != null) for (int i = 0; i < logs.size(); i++) logs.remove(i);
                         notifyObservers(userId, Constants.CALLBACK_COMPLETE_LOADING);
                     } else if (count > 0) {
 
@@ -196,18 +197,20 @@ public class LogsPresenter {
                                 @Override
                                 public void onChildAdded(DataSnapshot dataSnapshot, String s) {
                                     Log newLog = dataSnapshot.getValue(Log.class);
-                                    int index = logs.indexOf(newLog);
-                                    if (index == -1) {
-                                        if (logs.size() >= Constants.LIMIT_LOG_COUNT) {
-                                            logs.remove(logs.size() - 1);
-                                        }
-                                        logs.add(0, newLog);
-                                        notifyObservers(userId, Constants.CALLBACK_ADD_DATA, 0, newLog);
-                                    } else {    // If due to any bug, a previous log wasn't updated, update it now.
-                                        Log oldLog = logs.get(index);
-                                        if (oldLog.getEndTime() == 0 && newLog.getEndTime() != 0) {
-                                            oldLog.setEndTime(newLog.getEndTime());
-                                            notifyObservers(userId, Constants.CALLBACK_CHANGE_DATA, index, oldLog);
+                                    if (logs != null) {
+                                        int index = logs.indexOf(newLog);
+                                        if (index == -1) {
+                                            if (logs.size() >= Constants.LIMIT_LOG_COUNT) {
+                                                logs.remove(logs.size() - 1);
+                                            }
+                                            logs.add(0, newLog);
+                                            notifyObservers(userId, Constants.CALLBACK_ADD_DATA, 0, newLog);
+                                        } else {    // If due to any bug, a previous log wasn't updated, update it now.
+                                            Log oldLog = logs.get(index);
+                                            if (oldLog.getEndTime() == 0 && newLog.getEndTime() != 0) {
+                                                oldLog.setEndTime(newLog.getEndTime());
+                                                notifyObservers(userId, Constants.CALLBACK_CHANGE_DATA, index, oldLog);
+                                            }
                                         }
                                     }
 
@@ -242,8 +245,10 @@ public class LogsPresenter {
                                 @Override
                                 public void onChildChanged(DataSnapshot dataSnapshot, String s) {
                                     Log updatedLog = dataSnapshot.getValue(Log.class);
-                                    Log oldLog = logs.get(0);  //Changes are only allowed to the latest log, if it's in progress.
-                                    if ((oldLog.getMoveId().equals(updatedLog.getMoveId())) && (oldLog.getStartTime() == updatedLog.getStartTime())) {
+                                    Log oldLog = null;
+                                    if (logs != null)
+                                        oldLog = logs.get(0);  //Changes are only allowed to the latest log, if it's in progress.
+                                    if (oldLog != null && (oldLog.getMoveId().equals(updatedLog.getMoveId())) && (oldLog.getStartTime() == updatedLog.getStartTime())) {
                                         oldLog.setEndTime(updatedLog.getEndTime());
                                         notifyObservers(userId, Constants.CALLBACK_CHANGE_DATA, logs.indexOf(oldLog), oldLog);
                                     }
@@ -252,7 +257,7 @@ public class LogsPresenter {
                                 @Override
                                 public void onChildRemoved(DataSnapshot dataSnapshot) {
                                     Log removedLog = dataSnapshot.getValue(Log.class);
-                                    if (logs.contains(removedLog)) {
+                                    if (logs != null && logs.contains(removedLog)) {
                                         Log log = new Log(removedLog);
                                         int index = logs.indexOf(removedLog);
                                         logs.remove(removedLog);
@@ -318,7 +323,7 @@ public class LogsPresenter {
 
     public Log get(String userId, int index) {
         List<Log> logs = mLogs.get(userId);
-        if (logs != null) return logs.get(index);
+        if (logs != null && logs.size() > 0) return logs.get(index);
         return null;
     }
 
