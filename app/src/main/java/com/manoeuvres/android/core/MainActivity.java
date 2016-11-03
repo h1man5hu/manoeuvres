@@ -171,13 +171,8 @@ public class MainActivity extends AppCompatActivity
         else onNetworkDisconnected();
 
         /* Add the menu items for the cached friends to the navigation menu. */
-        List<Friend> following = mFollowingPresenter.getAll();
-        for (int i = 0; i < following.size(); i++) {
-            Friend friend = following.get(i);
-            int friendMenuId = UniqueId.getMenuId(friend);
-            if (mNavigationMenu.findItem(friendMenuId) == null)
-                mNavigationMenu.add(R.id.nav_group_timelines, friendMenuId, 1, friend.getName()).setCheckable(true);
-        }
+        for (int i = 0; i < mFollowingPresenter.size(); i++)
+            onFollowingAdded(i, mFollowingPresenter.get(i));
 
         /* Remove the menu items for the friends which were removed in the background. */
         List<Friend> removedFollowing = mFollowingPresenter.getRemovedFollowing();
@@ -201,8 +196,10 @@ public class MainActivity extends AppCompatActivity
     @Override
     public void onFollowingAdded(int index, Friend newFriend) {
         int friendMenuId = UniqueId.getMenuId(newFriend);
-        if (mNavigationMenu.findItem(friendMenuId) == null) {
-            mNavigationMenu.add(R.id.nav_group_timelines, friendMenuId, 1, newFriend.getName()).setCheckable(true);
+        MenuItem friendMenuItem = mNavigationMenu.findItem(friendMenuId);
+        if (friendMenuItem == null) {
+            friendMenuItem = mNavigationMenu.add(R.id.nav_group_timelines, friendMenuId, 1, newFriend.getName()).setCheckable(true);
+            if (friendMenuItem != null) friendMenuItem.setIcon(R.drawable.ic_person_black_24dp);
         }
     }
 
