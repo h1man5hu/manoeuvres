@@ -59,6 +59,7 @@
     <string name="text_loading_logs_your">your</string>
 
     <string name="snackbar_no_internet">No internet connection</string>
+    <string name="login_no_internet">Waiting for network…</string>
 
     <string name="notification_text_new_request">Hi, I would like to follow you!</string>
     <string name="notification_text_request_accepted">Sure! you can follow me :)</string>
@@ -80,5 +81,12 @@
     <string name="no_following">You can always find new friends from the \"Find friends\" tab. :)</string>
     <string name="no_friends">None of your friends are using Manoeuvres, would you spread the word for us? 0:)</string>
     <string name="no_requests">Don\'t worry, we\'ll notify you when you\'ll have a request. :)</string>
+
+    <string name="loading_login_check_account">Checking for previous accounts…</string>
+    <string name="loading_login_authenticate_facebook">Authenticating with Facebook…</string>
+    <string name="loading_login_authenticate_firebase">Authenticating with our servers…</string>
+    <string name="loading_login_account_exists">Account exists, welcome back!</string>
+    <string name="loading_login_creating_account">Creating account…</string>
+    <string name="loading_login_account_created">Account created, welcome!</string>
 
 </resources>

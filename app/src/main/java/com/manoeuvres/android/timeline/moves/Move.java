@@ -19,7 +19,9 @@ public class Move {
     }
 
     public Move(Move move) {
-        new Move(move.getName(), move.getPresent(), move.getPast());
+        mName = move.getName();
+        mPresent = move.getPresent();
+        mPast = move.getPast();
     }
 
     public String getName() {

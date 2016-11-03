@@ -1,6 +1,8 @@
 package com.manoeuvres.android.database;
 
 
+import android.content.res.Resources;
+
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.DataSnapshot;
@@ -8,8 +10,10 @@ import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
+import com.manoeuvres.android.R;
 import com.manoeuvres.android.friends.Friend;
 import com.manoeuvres.android.timeline.logs.Log;
+import com.manoeuvres.android.timeline.moves.Move;
 import com.manoeuvres.android.util.Constants;
 
 import java.util.ArrayList;
@@ -50,6 +54,48 @@ public class DatabaseHelper {
     private static DatabaseReference mSeenFollowingReference = mSeenReference.child(Constants.FIREBASE_DATABASE_REFERENCE_SEEN_FOLLOWING);
     public static DatabaseReference mUserSeenFollowingReference = mSeenFollowingReference.child(mUser.getUid());
 
+
+    public static void registerUser(Long facebookUserId, String name, Resources resources, RegisterUserListener listener) {
+        DatabaseReference profileReference = mUsersReference.child(mUser.getUid());
+        profileReference.child(Constants.FIREBASE_DATABASE_REFERENCE_USERS_FACEBOOK_ID).setValue(facebookUserId);
+        profileReference.child(Constants.FIREBASE_DATABASE_REFERENCE_USERS_NAME).setValue(name);
+        profileReference.child(Constants.FIREBASE_DATABASE_REFERENCE_USERS_ONLINE).setValue(false);
+        profileReference.child(Constants.FIREBASE_DATABASE_REFERENCE_USERS_LAST_SEEN).setValue(System.currentTimeMillis());
+
+        mMetaFollowersReference.child(mUser.getUid()).child(Constants.FIREBASE_DATABASE_REFERENCE_META_FOLLOWERS_COUNT).setValue("0");
+        mMetaFollowingReference.child(mUser.getUid()).child(Constants.FIREBASE_DATABASE_REFERENCE_META_FOLLOWING_COUNT).setValue("0");
+        mMetaLogsReference.child(mUser.getUid()).child(Constants.FIREBASE_DATABASE_REFERENCE_META_LOGS_COUNT).setValue("0");
+        mMetaMovesReference.child(mUser.getUid()).child(Constants.FIREBASE_DATABASE_REFERENCE_META_MOVES_COUNT).setValue("0");
+        mMetaRequestsReference.child(mUser.getUid()).child(Constants.FIREBASE_DATABASE_REFERENCE_META_REQUESTS_COUNT).setValue("0");
+
+        DatabaseReference userMovesReference = mMovesReference.child(mUser.getUid());
+        Move move = new Move();
+        move.setName(resources.getString(R.string.move_drive_name));
+        move.setPresent(resources.getString(R.string.move_drive_present));
+        move.setPast(resources.getString(R.string.move_drive_past));
+        userMovesReference.push().setValue(move);
+        move.setName(resources.getString(R.string.move_eat_name));
+        move.setPresent(resources.getString(R.string.move_eat_present));
+        move.setPast(resources.getString(R.string.move_eat_past));
+        userMovesReference.push().setValue(move);
+        move.setName(resources.getString(R.string.move_relax_name));
+        move.setPresent(resources.getString(R.string.move_relax_present));
+        move.setPast(resources.getString(R.string.move_relax_past));
+        userMovesReference.push().setValue(move);
+        move.setName(resources.getString(R.string.move_sleep_name));
+        move.setPresent(resources.getString(R.string.move_sleep_present));
+        move.setPast(resources.getString(R.string.move_sleep_past));
+        userMovesReference.push().setValue(move);
+        move.setName(resources.getString(R.string.move_study_name));
+        move.setPresent(resources.getString(R.string.move_study_present));
+        move.setPast(resources.getString(R.string.move_study_past));
+        userMovesReference.push().setValue(move);
+        move.setName(resources.getString(R.string.move_work_name));
+        move.setPresent(resources.getString(R.string.move_work_present));
+        move.setPast(resources.getString(R.string.move_work_past));
+
+        if (listener != null) listener.onRegistered();
+    }
 
     /*
      * 1. Decrement by 1 the count of the number of requests the user has.
@@ -487,7 +533,6 @@ public class DatabaseHelper {
         });
     }
 
-
     /*
      * The follow button in the FindFriends fragment changes its text upon completion to allow the
      * user to cancel the request.
@@ -514,5 +559,9 @@ public class DatabaseHelper {
 
     public interface LoadMoveListener {
         void onMoveLoaded(String text);
+    }
+
+    public interface RegisterUserListener {
+        void onRegistered();
     }
 }
