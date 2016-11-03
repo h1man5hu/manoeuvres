@@ -14,7 +14,7 @@
         android:theme="@style/AppTheme">
         <activity
             android:name=".startup.LaunchScreenActivity"
-            android:theme="@style/LaunchScreenTheme">
+            android:theme="@style/LaunchScreenTheme.TransparentStatusBar">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
 
@@ -26,7 +26,9 @@
             android:name="com.facebook.sdk.ApplicationId"
             android:value="@string/facebook_app_id"/>
 
-        <activity android:name=".login.LoginActivity">
+        <activity
+            android:name=".login.LoginActivity"
+            android:theme="@style/LoginActivityTheme.TransparentStatusBar">
         </activity>
         <activity
             android:name=".core.MainActivity"
