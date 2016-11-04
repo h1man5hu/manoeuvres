@@ -1,7 +1,6 @@
 package com.manoeuvres.android.core;
 
 
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.ColorStateList;
@@ -17,13 +16,11 @@ import android.view.MenuItem;
 import android.support.v4.app.Fragment;
 import android.support.v4.view.GravityCompat;
 import android.support.v4.widget.DrawerLayout;
-import android.support.v7.app.AlertDialog;
 import android.support.v7.app.ActionBarDrawerToggle;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.support.design.widget.NavigationView;
 import android.support.design.widget.FloatingActionButton;
-import android.widget.ArrayAdapter;
 import android.widget.ImageView;
 import android.widget.TextView;
 
@@ -36,13 +33,12 @@ import com.google.gson.Gson;
 import com.manoeuvres.android.R;
 import com.manoeuvres.android.login.LoginActivity;
 import com.manoeuvres.android.timeline.logs.Log;
-import com.manoeuvres.android.timeline.moves.Move;
 import com.manoeuvres.android.database.DatabaseHelper;
 import com.manoeuvres.android.friends.following.FollowingPresenter;
 import com.manoeuvres.android.friends.following.FollowingPresenter.FollowingListener;
 import com.manoeuvres.android.notifications.LatestLogPresenter;
 import com.manoeuvres.android.notifications.LatestLogPresenter.LatestLogListener;
-import com.manoeuvres.android.timeline.moves.MovesPresenter;
+import com.manoeuvres.android.timeline.moves.MovesDialogFragment;
 import com.manoeuvres.android.notifications.NotificationService;
 import com.manoeuvres.android.friends.findfriends.FindFriendsFragment;
 import com.manoeuvres.android.friends.followers.FollowersFragment;
@@ -51,7 +47,6 @@ import com.manoeuvres.android.friends.requests.RequestsFragment;
 import com.manoeuvres.android.timeline.TimelineFragment;
 import com.manoeuvres.android.friends.Friend;
 
-import java.util.Arrays;
 import java.util.List;
 
 import com.manoeuvres.android.network.NetworkMonitor;
@@ -65,7 +60,6 @@ public class MainActivity extends AppCompatActivity
 
     private FollowingPresenter mFollowingPresenter;
     private LatestLogPresenter mLatestLogPresenter;
-    private MovesPresenter mMovesPresenter;
 
     private NetworkMonitor mNetworkMonitor;
 
@@ -158,10 +152,6 @@ public class MainActivity extends AppCompatActivity
                 .sync();
 
         updateFab(mLatestLogPresenter.isInProgress(mUser.getUid()));
-
-        mMovesPresenter = MovesPresenter.getInstance(getApplicationContext())
-                .addFriend(mUser.getUid())
-                .sync();
 
         mNetworkMonitor = NetworkMonitor.getInstance(getApplicationContext()).attach(this);
 
@@ -345,7 +335,6 @@ public class MainActivity extends AppCompatActivity
                     mFragmentManager.beginTransaction().replace(R.id.content_main, fragment, Constants.TAG_FRAGMENT_TIMELINE).commit();
                 } else
                     mFragmentManager.popBackStack(null, FragmentManager.POP_BACK_STACK_INCLUSIVE);
-                mFab.show();
             }
         }
     }
@@ -426,26 +415,13 @@ public class MainActivity extends AppCompatActivity
 
             if (mCurrentFragment instanceof TimelineFragment) {
                 if (!mLatestLogPresenter.isInProgress(mUser.getUid())) {
-                    Object[] movesObjects = mMovesPresenter.getAll(mUser.getUid()).values().toArray();
-                    Move[] moves = Arrays.copyOf(movesObjects, movesObjects.length, Move[].class);
-                    final ArrayAdapter<Move> arrayAdapter = new ArrayAdapter<>(MainActivity.this, R.layout.list_item_move_selector_title, moves);
-
-                    new AlertDialog.Builder(MainActivity.this).setTitle(R.string.title_alert_dialog_select_move).setAdapter(arrayAdapter, new DialogInterface.OnClickListener() {
-                        @Override
-                        public void onClick(DialogInterface dialogInterface, int i) {
-                            Move move = (Move) mMovesPresenter.getAll(mUser.getUid()).values().toArray()[i];
-                            String moveId = mMovesPresenter.getKey(mUser.getUid(), move);
-                            if (moveId != null) DatabaseHelper.pushMove(new Log(moveId));
-                        }
-                    }).setNegativeButton(R.string.button_text_alert_dialog_negative, new DialogInterface.OnClickListener() {
-                        @Override
-                        public void onClick(DialogInterface dialogInterface, int i) {
-
-                        }
-                    }).show();
-                } else {
-                    DatabaseHelper.stopLatestMove();
-                }
+                    FragmentTransaction transaction = mFragmentManager.beginTransaction();
+                    Fragment fragment = mFragmentManager.findFragmentByTag(Constants.TAG_DIALOG_FRAGMENT_MOVES);
+                    if (fragment != null) transaction.remove(fragment);
+                    transaction.addToBackStack(null);
+                    MovesDialogFragment dialogFragment = new MovesDialogFragment();
+                    dialogFragment.show(transaction, Constants.TAG_DIALOG_FRAGMENT_MOVES);
+                } else DatabaseHelper.stopLatestMove();
             }
         }
     }

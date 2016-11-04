@@ -171,7 +171,7 @@ public class TimelineFragment extends Fragment implements MovesListener, LogsLis
                 .attach(this, mCurrentUserId)
                 .sync(mCurrentUserId);
 
-        if (mMovesPresenter.isLoaded(mCurrentUserId)) mLogsPresenter.sync(mCurrentUserId);
+        if (mMovesPresenter.isLoaded(mCurrentUserId)) onCompleteMovesLoading(mCurrentUserId);
 
         if (mLogsPresenter.isLoaded(mCurrentUserId)) mAdapter.notifyDataSetChanged();
 

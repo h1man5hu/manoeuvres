@@ -20,6 +20,7 @@ public class Constants {
     public static final String TAG_FRAGMENT_FOLLOWERS = "followersFragment";
     public static final String TAG_FRAGMENT_FIND_FRIENDS = "findFriendsFragment";
     public static final String TAG_FRAGMENT_REQUESTS = "requestsFragment";
+    public static final String TAG_DIALOG_FRAGMENT_MOVES = "movesDialogFragment";
 
     public static final String FIREBASE_DATABASE_REFERENCE_USERS = "users";
     public static final String FIREBASE_DATABASE_REFERENCE_USERS_NAME = "name";

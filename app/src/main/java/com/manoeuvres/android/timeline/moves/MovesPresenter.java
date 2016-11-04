@@ -354,6 +354,12 @@ public class MovesPresenter {
         return null;
     }
 
+    public int size(String userId) {
+        ArrayMap<String, Move> moves = mMoves.get(userId);
+        if (moves != null) return moves.size();
+        return 0;
+    }
+
     public Boolean isLoaded(String userId) {
         Boolean isLoaded = mIsLoaded.get(userId);
         if (isLoaded != null) return isLoaded;
