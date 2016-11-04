@@ -9,6 +9,7 @@ import android.content.SharedPreferences;
 import android.os.IBinder;
 import android.preference.PreferenceManager;
 import android.support.annotation.Nullable;
+import android.support.v4.content.ContextCompat;
 
 import com.google.gson.Gson;
 import com.manoeuvres.android.R;
@@ -142,7 +143,8 @@ public class NotificationService extends Service implements RequestsListener, Fo
 
         final android.support.v4.app.NotificationCompat.Builder builder = new android.support.v4.app.NotificationCompat
                 .Builder(NotificationService.this)
-                .setSmallIcon(R.drawable.com_facebook_profile_picture_blank_square)
+                .setSmallIcon(R.drawable.ic_notification_small)
+                .setColor(ContextCompat.getColor(this, R.color.colorPrimaryDark))
                 .setDefaults(Notification.DEFAULT_ALL)
                 .setAutoCancel(true)
                 .setContentIntent(pendingIntent);
