@@ -111,7 +111,8 @@ public class DatabaseHelper {
             public void onDataChange(DataSnapshot dataSnapshot) {
                 if (dataSnapshot.getValue() != null) {
                     int count = Integer.valueOf(dataSnapshot.getValue().toString());
-                    mUserRequestsCountReference.setValue(count - 1);
+                    if (count > 0) mUserRequestsCountReference.setValue(count - 1);
+                    else mUserRequestsCountReference.setValue(0);
 
                     final DatabaseReference userRequestsReference = mRequestsReference.child(mUser.getUid());
                     userRequestsReference.addListenerForSingleValueEvent(new ValueEventListener() {
@@ -214,7 +215,8 @@ public class DatabaseHelper {
             public void onDataChange(DataSnapshot dataSnapshot) {
                 if (dataSnapshot.getValue() != null) {
                     int count = Integer.valueOf(dataSnapshot.getValue().toString());
-                    mUserFollowersCountReference.setValue(count - 1);
+                    if (count > 0) mUserFollowersCountReference.setValue(count - 1);
+                    else mUserFollowersCountReference.setValue(0);
 
                     mUserFollowersReference.addListenerForSingleValueEvent(new ValueEventListener() {
                         @Override
@@ -245,7 +247,8 @@ public class DatabaseHelper {
             public void onDataChange(DataSnapshot dataSnapshot) {
                 if (dataSnapshot.getValue() != null) {
                     int count = Integer.valueOf(dataSnapshot.getValue().toString());
-                    friendFollowingCountReference.setValue(count - 1);
+                    if (count > 0) friendFollowingCountReference.setValue(count - 1);
+                    else friendFollowingCountReference.setValue(0);
 
                     final DatabaseReference friendFollowingReference = mFollowingReference.child(friend.getFirebaseId());
                     friendFollowingReference.addListenerForSingleValueEvent(new ValueEventListener() {
@@ -284,7 +287,8 @@ public class DatabaseHelper {
             public void onDataChange(DataSnapshot dataSnapshot) {
                 if (dataSnapshot.getValue() != null) {
                     int count = Integer.valueOf(dataSnapshot.getValue().toString());
-                    mUserFollowingCountReference.setValue(count - 1);
+                    if (count > 0) mUserFollowingCountReference.setValue(count - 1);
+                    else mUserFollowingCountReference.setValue(0);
                 }
 
                 mUserFollowingReference.addListenerForSingleValueEvent(new ValueEventListener() {
@@ -316,7 +320,8 @@ public class DatabaseHelper {
             public void onDataChange(DataSnapshot dataSnapshot) {
                 if (dataSnapshot.getValue() != null) {
                     int count = Integer.valueOf(dataSnapshot.getValue().toString());
-                    friendFollowersCountReference.setValue(count - 1);
+                    if (count > 0) friendFollowersCountReference.setValue(count - 1);
+                    else friendFollowersCountReference.setValue(0);
 
                     final DatabaseReference friendFollowersReference = mFollowersReference.child(friend.getFirebaseId());
                     friendFollowersReference.addListenerForSingleValueEvent(new ValueEventListener() {
@@ -396,7 +401,8 @@ public class DatabaseHelper {
             public void onDataChange(DataSnapshot dataSnapshot) {
                 if (dataSnapshot.getValue() != null) {
                     int count = Integer.valueOf(dataSnapshot.getValue().toString());
-                    friendRequestsCountReference.setValue(count - 1);
+                    if (count > 0) friendRequestsCountReference.setValue(count - 1);
+                    else friendRequestsCountReference.setValue(0);
 
                     final DatabaseReference friendRequestsReference = mRequestsReference.child(friend.getFirebaseId());
                     friendRequestsReference.addListenerForSingleValueEvent(new ValueEventListener() {
