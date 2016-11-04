@@ -187,6 +187,7 @@ public class FollowersFragment extends Fragment implements FollowersListener {
 
             @Override
             public void onClick(View view) {
+                mButton.setText(R.string.button_text_removing);
                 final Friend friend = mFacebookFriendsPresenter.get(mFacebookFriendsPresenter.indexOf(mFollowersPresenter.get(getAdapterPosition())));
                 DatabaseHelper.removeFollower(friend);
             }

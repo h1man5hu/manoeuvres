@@ -199,6 +199,7 @@ public class FollowingFragment extends Fragment implements FollowingListener {
 
             @Override
             public void onClick(View view) {
+                mButton.setText(R.string.button_text_unfollowing);
                 final Friend friend = mFacebookFriendsPresenter.get(mFacebookFriendsPresenter.indexOf(mFollowingPresenter.get(getAdapterPosition())));
                 DatabaseHelper.unfollowFriend(friend);
             }

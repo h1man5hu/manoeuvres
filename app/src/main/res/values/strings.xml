@@ -10,6 +10,12 @@
     <string name="button_text_follow">Follow</string>
     <string name="button_text_accept">Accept</string>
     <string name="button_text_cancel_request">Cancel request</string>
+    <string name="button_text_following">Following…</string>
+    <string name="button_text_cancelling">Cancelling…</string>
+    <string name="button_text_accepting">Accepting…</string>
+    <string name="button_text_unfollowing">Unfollowing…</string>
+    <string name="button_text_removing">Removing…</string>
+
 
     <string name="title_activity_main">MainActivity</string>
     <string name="title_activity_main_followers">Followers</string>

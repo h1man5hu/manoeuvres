@@ -205,6 +205,7 @@ public class RequestsFragment extends Fragment implements RequestsListener {
 
             @Override
             public void onClick(View view) {
+                mButton.setText(R.string.button_text_accepting);
                 final Friend friend = mFacebookFriendsPresenter.get(mFacebookFriendsPresenter.indexOf(mRequestsPresenter.get(getAdapterPosition())));
                 DatabaseHelper.acceptRequest(friend);
             }

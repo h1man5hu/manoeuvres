@@ -221,6 +221,7 @@ public class FindFriendsFragment extends Fragment implements FollowingListener {
             public void onClick(View view) {
                 final Friend friend = mFacebookFriendsPresenter.get(mFacebookFriendsPresenter.indexOf(mUnfollowedFriends.get(getAdapterPosition())));
                 if (mButton.getText().equals(getString(R.string.button_text_follow))) {
+                    mButton.setText(R.string.button_text_following);
                     DatabaseHelper.followFriend(friend, new DatabaseHelper.FollowFriendListener() {
                         @Override
                         public void onRequested() {
@@ -228,6 +229,7 @@ public class FindFriendsFragment extends Fragment implements FollowingListener {
                         }
                     });
                 } else if (mButton.getText().equals(getString(R.string.button_text_cancel_request))) {
+                    mButton.setText(R.string.button_text_cancelling);
                     DatabaseHelper.cancelRequest(friend, new DatabaseHelper.CancelRequestListener() {
                         @Override
                         public void onCancelled() {
