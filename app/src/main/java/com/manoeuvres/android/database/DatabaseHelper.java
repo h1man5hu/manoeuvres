@@ -62,11 +62,11 @@ public class DatabaseHelper {
         profileReference.child(Constants.FIREBASE_DATABASE_REFERENCE_USERS_ONLINE).setValue(false);
         profileReference.child(Constants.FIREBASE_DATABASE_REFERENCE_USERS_LAST_SEEN).setValue(System.currentTimeMillis());
 
-        mMetaFollowersReference.child(mUser.getUid()).child(Constants.FIREBASE_DATABASE_REFERENCE_META_FOLLOWERS_COUNT).setValue("0");
-        mMetaFollowingReference.child(mUser.getUid()).child(Constants.FIREBASE_DATABASE_REFERENCE_META_FOLLOWING_COUNT).setValue("0");
-        mMetaLogsReference.child(mUser.getUid()).child(Constants.FIREBASE_DATABASE_REFERENCE_META_LOGS_COUNT).setValue("0");
-        mMetaMovesReference.child(mUser.getUid()).child(Constants.FIREBASE_DATABASE_REFERENCE_META_MOVES_COUNT).setValue("0");
-        mMetaRequestsReference.child(mUser.getUid()).child(Constants.FIREBASE_DATABASE_REFERENCE_META_REQUESTS_COUNT).setValue("0");
+        mMetaFollowersReference.child(mUser.getUid()).child(Constants.FIREBASE_DATABASE_REFERENCE_META_FOLLOWERS_COUNT).setValue(0);
+        mMetaFollowingReference.child(mUser.getUid()).child(Constants.FIREBASE_DATABASE_REFERENCE_META_FOLLOWING_COUNT).setValue(0);
+        mMetaLogsReference.child(mUser.getUid()).child(Constants.FIREBASE_DATABASE_REFERENCE_META_LOGS_COUNT).setValue(0);
+        mMetaMovesReference.child(mUser.getUid()).child(Constants.FIREBASE_DATABASE_REFERENCE_META_MOVES_COUNT).setValue(6);
+        mMetaRequestsReference.child(mUser.getUid()).child(Constants.FIREBASE_DATABASE_REFERENCE_META_REQUESTS_COUNT).setValue(0);
 
         DatabaseReference userMovesReference = mMovesReference.child(mUser.getUid());
         Move move = new Move();
@@ -93,6 +93,7 @@ public class DatabaseHelper {
         move.setName(resources.getString(R.string.move_work_name));
         move.setPresent(resources.getString(R.string.move_work_present));
         move.setPast(resources.getString(R.string.move_work_past));
+        userMovesReference.push().setValue(move);
 
         if (listener != null) listener.onRegistered();
     }

@@ -129,7 +129,11 @@ public class LatestLogPresenter {
     public LatestLogPresenter sync(final String userId) {
         ValueEventListener listener = mListeners.get(userId);
         if (listener == null) {
-            listener = mReferences.get(userId).limitToLast(1).addValueEventListener(new ValueEventListener() {
+            DatabaseReference reference = mReferences.get(userId);
+            if (reference == null) {
+                reference = mReferences.put(userId, DatabaseHelper.mLogsReference.child(userId));
+            }
+            listener = reference.limitToLast(1).addValueEventListener(new ValueEventListener() {
                 @Override
                 public void onDataChange(DataSnapshot dataSnapshot) {
                     if (dataSnapshot.hasChildren()) {
