@@ -379,6 +379,9 @@ public class MainActivity extends AppCompatActivity
         Bundle bundle = intent.getExtras();
         String notificationType = bundle.getString(Constants.KEY_EXTRA_NOTIFICATION_SERVICE);
         if (notificationType != null) {
+            DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
+            if (drawer != null && drawer.isDrawerOpen(GravityCompat.START))
+                drawer.closeDrawer(GravityCompat.START);
             if (notificationType.equals(Constants.NOTIFICATION_TYPE_REQUEST))
                 startFriendsFragment(Constants.FRAGMENT_REQUESTS, R.id.nav_requests);
             else if (notificationType.equals(Constants.NOTIFICATION_TYPE_FOLLOWING) || (notificationType.equals(Constants.NOTIFICATION_TYPE_LOG)))
