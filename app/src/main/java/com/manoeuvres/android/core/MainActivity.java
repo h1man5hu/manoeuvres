@@ -236,6 +236,7 @@ public class MainActivity extends AppCompatActivity
             @Override
             public void run() {
                 mNavigationMenu.setGroupVisible(R.id.nav_group_profile, true);
+                mNavigationMenu.setGroupVisible(R.id.nav_group_account, true);
             }
         });
     }
@@ -252,6 +253,7 @@ public class MainActivity extends AppCompatActivity
             @Override
             public void run() {
                 mNavigationMenu.setGroupVisible(R.id.nav_group_profile, false);
+                mNavigationMenu.setGroupVisible(R.id.nav_group_account, false);
             }
         });
     }
