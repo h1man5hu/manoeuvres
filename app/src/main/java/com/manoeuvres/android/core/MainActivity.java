@@ -33,7 +33,6 @@ import com.google.gson.Gson;
 import com.manoeuvres.android.R;
 import com.manoeuvres.android.login.LoginActivity;
 import com.manoeuvres.android.timeline.logs.Log;
-import com.manoeuvres.android.database.DatabaseHelper;
 import com.manoeuvres.android.friends.following.FollowingPresenter;
 import com.manoeuvres.android.friends.following.FollowingPresenter.FollowingListener;
 import com.manoeuvres.android.notifications.LatestLogPresenter;
@@ -271,7 +270,6 @@ public class MainActivity extends AppCompatActivity
         else super.onBackPressed();
     }
 
-    @SuppressWarnings("StatementWithEmptyBody")
     @Override
     public boolean onNavigationItemSelected(@NonNull MenuItem item) {
 
@@ -421,7 +419,7 @@ public class MainActivity extends AppCompatActivity
                     transaction.addToBackStack(null);
                     MovesDialogFragment dialogFragment = new MovesDialogFragment();
                     dialogFragment.show(transaction, Constants.TAG_DIALOG_FRAGMENT_MOVES);
-                } else DatabaseHelper.stopLatestMove();
+                } else mLatestLogPresenter.stopLatestMove();
             }
         }
     }

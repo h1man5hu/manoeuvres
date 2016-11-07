@@ -10,12 +10,13 @@
     <string name="button_text_follow">Follow</string>
     <string name="button_text_accept">Accept</string>
     <string name="button_text_cancel_request">Cancel request</string>
+    <string name="button_text_network_error">Network Error</string>
     <string name="button_text_following">Following…</string>
     <string name="button_text_cancelling">Cancelling…</string>
     <string name="button_text_accepting">Accepting…</string>
     <string name="button_text_unfollowing">Unfollowing…</string>
     <string name="button_text_removing">Removing…</string>
-
+    <string name="button_text_loading">Loading…</string>
 
     <string name="title_activity_main">MainActivity</string>
     <string name="title_activity_main_followers">Followers</string>
@@ -86,6 +87,7 @@
     <string name="no_followers">Not so popular, eh?</string>
     <string name="no_following">You can always find new friends from the \"Find friends\" tab. :)</string>
     <string name="no_friends">None of your friends are using Manoeuvres, would you spread the word for us? 0:)</string>
+    <string name="no_new_friends">You\'re already following all of your Facebook friends. That\'s the spirit!</string>
     <string name="no_requests">Don\'t worry, we\'ll notify you when you\'ll have a request. :)</string>
 
     <string name="loading_login_check_account">Checking for previous accounts…</string>

@@ -12,8 +12,8 @@ import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.ValueEventListener;
 import com.google.gson.Gson;
-import com.manoeuvres.android.database.DatabaseHelper;
 import com.manoeuvres.android.timeline.logs.Log;
+import com.manoeuvres.android.timeline.logs.LogsDatabaseHelper;
 import com.manoeuvres.android.util.Constants;
 import com.manoeuvres.android.util.UniqueId;
 
@@ -89,7 +89,10 @@ public class LatestLogPresenter {
             stopSync(userId);
 
             /* If there are no observers, free the memory for garbage collection. */
-            if (mObservers.size() == 0) ourInstance = null;
+            if (mObservers.size() == 0) {
+                stopSync();
+                ourInstance = null;
+            }
             else {
                 Collection<LatestLogListener[]> listenerArrays = mObservers.values();
                 if (listenerArrays.size() > 0)
@@ -98,6 +101,7 @@ public class LatestLogPresenter {
                             LatestLogListener observer = listenerArray[i];
                             if (observer != null) return ourInstance;
                         }
+                stopSync();
                 ourInstance = null;
             }
         }
@@ -107,7 +111,7 @@ public class LatestLogPresenter {
     public LatestLogPresenter addFriend(String userId) {
         DatabaseReference databaseReference = mReferences.get(userId);
         if (databaseReference == null)
-            mReferences.put(userId, DatabaseHelper.mLogsReference.child(userId));
+            mReferences.put(userId, LogsDatabaseHelper.getLogsDataReference(userId));
 
         String latestLogString = mSharedPreferences.getString(UniqueId.getLatestLogKey(userId), "");
         Log cachedLog = mGson.fromJson(latestLogString, Log.class);
@@ -117,7 +121,7 @@ public class LatestLogPresenter {
         return ourInstance;
     }
 
-    public LatestLogPresenter removeFriend(String userId) {
+    LatestLogPresenter removeFriend(String userId) {
         stopSync(userId);
         if (mObservers.containsKey(userId)) mObservers.remove(userId);
         if (mListeners.containsKey(userId)) mListeners.remove(userId);
@@ -127,11 +131,13 @@ public class LatestLogPresenter {
     }
 
     public LatestLogPresenter sync(final String userId) {
+        if (userId == null) return ourInstance;
         ValueEventListener listener = mListeners.get(userId);
         if (listener == null) {
             DatabaseReference reference = mReferences.get(userId);
             if (reference == null) {
-                reference = mReferences.put(userId, DatabaseHelper.mLogsReference.child(userId));
+                reference = LogsDatabaseHelper.getLogsDataReference(userId);
+                mReferences.put(userId, reference);
             }
             listener = reference.limitToLast(1).addValueEventListener(new ValueEventListener() {
                 @Override
@@ -156,7 +162,7 @@ public class LatestLogPresenter {
         return ourInstance;
     }
 
-    public LatestLogPresenter stopSync(String userId) {
+    private LatestLogPresenter stopSync(String userId) {
         DatabaseReference databaseReference = mReferences.get(userId);
         ValueEventListener listener = mListeners.get(userId);
         if (databaseReference != null && listener != null) {
@@ -187,6 +193,10 @@ public class LatestLogPresenter {
         return mLatestLogs.get(userId);
     }
 
+    public void stopLatestMove() {
+        LatestLogDatabaseHelper.stopLatestMove();
+    }
+
     private void notifyObservers(String userId, String event, Log log, boolean inProgress) {
         LatestLogListener[] observers = mObservers.get(userId);
         if (observers != null) {
@@ -199,10 +209,6 @@ public class LatestLogPresenter {
                     }
             }
         }
-    }
-
-    private void notifyObservers(String userId, String event) {
-        notifyObservers(userId, event, null, false);
     }
 
     public interface LatestLogListener {

@@ -12,13 +12,7 @@ public class Move {
 
     }
 
-    public Move(String name, String present, String past) {
-        mName = name;
-        mPresent = present;
-        mPast = past;
-    }
-
-    public Move(Move move) {
+    Move(Move move) {
         mName = move.getName();
         mPresent = move.getPresent();
         mPast = move.getPast();

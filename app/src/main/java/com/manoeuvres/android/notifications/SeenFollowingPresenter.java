@@ -5,13 +5,14 @@ import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.ValueEventListener;
 import com.manoeuvres.android.friends.Friend;
-import com.manoeuvres.android.database.DatabaseHelper;
+import com.manoeuvres.android.friends.following.FollowingDatabaseHelper;
+import com.manoeuvres.android.login.AuthPresenter;
 import com.manoeuvres.android.util.Constants;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class SeenFollowingPresenter {
+class SeenFollowingPresenter implements SeenPresenter {
     private static SeenFollowingPresenter ourInstance;
 
     private ValueEventListener mListener;
@@ -30,6 +31,7 @@ public class SeenFollowingPresenter {
         return ourInstance;
     }
 
+    @Override
     public SeenFollowingPresenter attach(Object component) {
         SeenFollowingListener listener = (SeenFollowingListener) component;
 
@@ -49,6 +51,7 @@ public class SeenFollowingPresenter {
         return ourInstance;
     }
 
+    @Override
     public SeenFollowingPresenter detach(Object component) {
         SeenFollowingListener listener = (SeenFollowingListener) component;
 
@@ -68,8 +71,13 @@ public class SeenFollowingPresenter {
         return ourInstance;
     }
 
+    @Override
     public SeenFollowingPresenter sync() {
         if (mListener == null) {
+
+            String userId = AuthPresenter.getCurrentUserId();
+            if (userId == null) return ourInstance;
+
             mListener = new ValueEventListener() {
                 @Override
                 public void onDataChange(DataSnapshot dataSnapshot) {
@@ -88,19 +96,25 @@ public class SeenFollowingPresenter {
 
                 }
             };
-            DatabaseHelper.mUserSeenFollowingReference.addValueEventListener(mListener);
+            FollowingDatabaseHelper.getSeenFollowingReference(userId).addValueEventListener(mListener);
         }
         return ourInstance;
     }
 
+    @Override
     public SeenFollowingPresenter stopSync() {
         if (mListener != null) {
-            DatabaseHelper.mUserSeenFollowingReference.removeEventListener(mListener);
+
+            String userId = AuthPresenter.getCurrentUserId();
+            if (userId == null) return ourInstance;
+
+            FollowingDatabaseHelper.getSeenFollowingReference(userId).removeEventListener(mListener);
             mListener = null;
         }
         return ourInstance;
     }
 
+    @Override
     public boolean contains(Friend friend) {
         return mSeenFollowing.contains(friend);
     }
@@ -117,7 +131,11 @@ public class SeenFollowingPresenter {
         }
     }
 
-    public interface SeenFollowingListener {
+    void pushSeenFollowing(List<Friend> following) {
+        FollowingDatabaseHelper.pushSeenFollowing(following);
+    }
+
+    interface SeenFollowingListener {
         void onSeenFollowingLoaded();
     }
 }

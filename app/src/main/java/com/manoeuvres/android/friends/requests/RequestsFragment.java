@@ -18,7 +18,6 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import com.manoeuvres.android.R;
-import com.manoeuvres.android.database.DatabaseHelper;
 import com.manoeuvres.android.friends.findfriends.FacebookFriendsPresenter;
 import com.manoeuvres.android.friends.requests.RequestsPresenter.RequestsListener;
 import com.manoeuvres.android.friends.Friend;
@@ -39,7 +38,6 @@ public class RequestsFragment extends Fragment implements RequestsListener {
     private RecyclerView mRecyclerView;
     private RecyclerView.Adapter mAdapter;
 
-    private NavigationView mNavigationView;
     private Menu mNavigationMenu;
 
     private ProgressBar mProgressBar;
@@ -77,8 +75,8 @@ public class RequestsFragment extends Fragment implements RequestsListener {
         mRecyclerView.setAdapter(mAdapter);
         mRecyclerView.addItemDecoration(new DividerItemDecoration(mMainActivity));
 
-        mNavigationView = (NavigationView) mMainActivity.findViewById(R.id.nav_view);
-        mNavigationMenu = mNavigationView.getMenu();
+        NavigationView navigationView = (NavigationView) mMainActivity.findViewById(R.id.nav_view);
+        mNavigationMenu = navigationView.getMenu();
 
         mProgressBar = (ProgressBar) rootView.findViewById(R.id.progress_bar_friends);
 
@@ -95,7 +93,7 @@ public class RequestsFragment extends Fragment implements RequestsListener {
         mNavigationMenu.findItem(R.id.nav_requests).setChecked(true);
 
         mFacebookFriendsPresenter = FacebookFriendsPresenter.getInstance(mMainActivity.getApplicationContext())
-                .updateFacebookFriends();
+                .sync();
 
         mRequestsPresenter = RequestsPresenter.getInstance()
                 .attach(this)
@@ -162,8 +160,8 @@ public class RequestsFragment extends Fragment implements RequestsListener {
     public void onStop() {
         super.onStop();
 
+        mRequestsPresenter.pushSeenRequests(mRequestsPresenter.getAll());
         mRequestsPresenter.detach(this);
-        DatabaseHelper.pushSeenRequests(mRequestsPresenter.getAll());
     }
 
     public class RequestsViewAdapter extends RecyclerView.Adapter<RequestsViewAdapter.ViewHolder> {
@@ -175,13 +173,26 @@ public class RequestsFragment extends Fragment implements RequestsListener {
         }
 
         @Override
-        public void onBindViewHolder(RequestsViewAdapter.ViewHolder holder, int position) {
+        public void onBindViewHolder(final RequestsViewAdapter.ViewHolder holder, int position) {
             if (mRequestsPresenter.size() > position) {
                 Friend friend = mRequestsPresenter.get(position);
                 int index = mFacebookFriendsPresenter.indexOf(friend);
                 if (index != -1) {
                     friend = mFacebookFriendsPresenter.get(index);
-                    holder.mFriendName.setText(friend.getName());
+                    String name = friend.getName();
+                    if (!name.equals("")) holder.mFriendName.setText(friend.getName());
+                    else
+                        mFacebookFriendsPresenter.getUserName(friend.getFirebaseId(), new FacebookFriendsPresenter.GetNameListener() {
+                            @Override
+                            public void onLoaded(String name) {
+                                holder.mFriendName.setText(name);
+                            }
+
+                            @Override
+                            public void onFailed() {
+
+                            }
+                        });
                 }
             }
         }
@@ -207,7 +218,7 @@ public class RequestsFragment extends Fragment implements RequestsListener {
             public void onClick(View view) {
                 mButton.setText(R.string.button_text_accepting);
                 final Friend friend = mFacebookFriendsPresenter.get(mFacebookFriendsPresenter.indexOf(mRequestsPresenter.get(getAdapterPosition())));
-                DatabaseHelper.acceptRequest(friend);
+                mRequestsPresenter.acceptRequest(friend);
             }
         }
     }

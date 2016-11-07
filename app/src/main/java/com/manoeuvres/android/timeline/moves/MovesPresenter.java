@@ -14,7 +14,9 @@ import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.ValueEventListener;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
-import com.manoeuvres.android.database.DatabaseHelper;
+import com.manoeuvres.android.friends.Friend;
+import com.manoeuvres.android.timeline.TimelinePresenter;
+import com.manoeuvres.android.timeline.logs.LogsDatabaseHelper;
 import com.manoeuvres.android.util.Constants;
 import com.manoeuvres.android.util.UniqueId;
 
@@ -22,7 +24,7 @@ import java.lang.reflect.Type;
 import java.util.Collection;
 import java.util.Set;
 
-public class MovesPresenter {
+public class MovesPresenter implements TimelinePresenter {
     private static MovesPresenter ourInstance;
 
     /*
@@ -63,6 +65,7 @@ public class MovesPresenter {
         return ourInstance;
     }
 
+    @Override
     public MovesPresenter attach(Object component, String userId) {
         MovesListener listener = (MovesListener) component;
         MovesListener[] listeners = mObservers.get(userId);
@@ -88,6 +91,7 @@ public class MovesPresenter {
         return ourInstance;
     }
 
+    @Override
     public MovesPresenter detach(Object component, String userId) {
         MovesListener listener = (MovesListener) component;
         MovesListener[] listeners = mObservers.get(userId);
@@ -118,6 +122,7 @@ public class MovesPresenter {
         return ourInstance;
     }
 
+    @Override
     public MovesPresenter addFriend(String userId) {
 
         /*
@@ -137,16 +142,17 @@ public class MovesPresenter {
 
         DatabaseReference countReference = mCountReferences.get(userId);
         if (countReference == null) mCountReferences.put(userId
-                , DatabaseHelper.mMetaMovesReference.child(userId).child(Constants.FIREBASE_DATABASE_REFERENCE_META_MOVES_COUNT));
+                , MovesDatabaseHelper.getMovesCountReference(userId));
         DatabaseReference dataReference = mDataReferences.get(userId);
         if (dataReference == null) mDataReferences.put(userId
-                , DatabaseHelper.mMovesReference.child(userId));
+                , MovesDatabaseHelper.getMovesDataReference(userId));
 
         return ourInstance;
     }
 
+    @Override
     public MovesPresenter removeFriend(String userId) {
-        removeListeners(userId);
+        stopSync(userId);
         if (mCountReferences.containsKey(userId)) mCountReferences.remove(userId);
         if (mDataReferences.containsKey(userId)) mDataReferences.remove(userId);
         if (mMoves.containsKey(userId)) mMoves.remove(userId);
@@ -155,7 +161,8 @@ public class MovesPresenter {
         return ourInstance;
     }
 
-    private void setListeners(final String userId) {
+    @Override
+    public MovesPresenter sync(final String userId) {
         ValueEventListener movesCountListener = mCountListeners.get(userId);
         if (movesCountListener == null) {
             notifyObservers(userId, Constants.CALLBACK_START_LOADING);
@@ -172,10 +179,10 @@ public class MovesPresenter {
                     public void onDataChange(DataSnapshot dataSnapshot) {
                         final int count = Integer.valueOf(dataSnapshot.getValue().toString());
 
-                    /*
-                     * If the count on the Firebase database is zero but there are moves in the cached list,
-                     * remove all of them.
-                     */
+                        /*
+                         * If the count on the Firebase database is zero but there are moves in the cached list,
+                         * remove all of them.
+                         */
                         if (count == 0) {
                             if (moves != null && moves.size() > 0) {
                                 Set<String> keys = moves.keySet();
@@ -185,13 +192,13 @@ public class MovesPresenter {
                             }
                         } else if (count > 0) {
 
-                        /*
-                         * In case not all but some of the moves were removed, this list will
-                         * be subtracted from the cached list to get the moves which were removed.
-                         * Each move on the Firebase database is added to this list.
-                         * The subtraction will be done when all the moves have been retrieved from the
-                         * Firebase database.
-                         */
+                            /*
+                             * In case not all but some of the moves were removed, this list will
+                             * be subtracted from the cached list to get the moves which were removed.
+                             * Each move on the Firebase database is added to this list.
+                             * The subtraction will be done when all the moves have been retrieved from the
+                             * Firebase database.
+                             */
                             final ArrayMap<String, Move> updatedMoves = new ArrayMap<>();
 
                             ChildEventListener movesListener = mDataListeners.get(userId);
@@ -218,10 +225,10 @@ public class MovesPresenter {
                                             updatedMoves.put(key, newMove);
                                             notifyObservers(userId, Constants.CALLBACK_ADD_DATA, key, newMove);
 
-                                   /*
-                                    * All the moves have been retrieved, subtract the list and notify
-                                    * removed moves to listeners, if any.
-                                    */
+                                           /*
+                                            * All the moves have been retrieved, subtract the list and notify
+                                            * removed moves to listeners, if any.
+                                            */
                                             if (updatedMoves.size() == count) {
                                                 if (moves.size() > count) {
                                                     ArrayMap<String, Move> removedMoves = new ArrayMap<>(moves);
@@ -294,9 +301,11 @@ public class MovesPresenter {
                 mCountListeners.put(userId, movesCountListener);
             }
         }
+        return ourInstance;
     }
 
-    private void removeListeners(String userId) {
+    @Override
+    public MovesPresenter stopSync(String userId) {
         DatabaseReference countReference = mCountReferences.get(userId);
         DatabaseReference dataReference = mDataReferences.get(userId);
         ValueEventListener countListener = mCountListeners.get(userId);
@@ -310,41 +319,51 @@ public class MovesPresenter {
             dataReference.removeEventListener(dataListener);
             mDataListeners.put(userId, null);
         }
+
+        return ourInstance;
     }
 
+    @Override
     public MovesPresenter sync() {
         Set<String> keys = mCountReferences.keySet();
-        if (keys.size() > 0) for (String userId : keys) setListeners(userId);
+        if (keys.size() > 0) for (String userId : keys) sync(userId);
         return ourInstance;
     }
 
-    public MovesPresenter sync(String userId) {
-        setListeners(userId);
-        return ourInstance;
-    }
-
+    @Override
     public MovesPresenter stopSync() {
         Set<String> keys = mCountReferences.keySet();
-        if (keys.size() > 0) for (String userId : keys) removeListeners(userId);
+        if (keys.size() > 0) for (String userId : keys) stopSync(userId);
         return ourInstance;
     }
 
-    public MovesPresenter stopSync(String userId) {
-        removeListeners(userId);
-        return ourInstance;
+    @Override
+    public int size(String userId) {
+        ArrayMap<String, Move> moves = mMoves.get(userId);
+        if (moves != null) return moves.size();
+        return 0;
     }
 
+    @Override
+    public Boolean isLoaded(String userId) {
+        Boolean isLoaded = mIsLoaded.get(userId);
+        if (isLoaded != null) return isLoaded;
+        else return false;
+    }
+
+    @Override
     public Move get(String userId, String moveId) {
         ArrayMap<String, Move> moves = mMoves.get(userId);
         if (moves != null) return moves.get(moveId);
         return null;
     }
 
+    @Override
     public ArrayMap<String, Move> getAll(String userId) {
         return mMoves.get(userId);
     }
 
-    public String getKey(String userID, Move move) {
+    String getKey(String userID, Move move) {
         ArrayMap<String, Move> moves = mMoves.get(userID);
         if (moves != null && moves.size() > 0) {
             Set<ArrayMap.Entry<String, Move>> moveEntrySet = moves.entrySet();
@@ -352,18 +371,6 @@ public class MovesPresenter {
                 if (entry.getValue().equals(move)) return entry.getKey();
         }
         return null;
-    }
-
-    public int size(String userId) {
-        ArrayMap<String, Move> moves = mMoves.get(userId);
-        if (moves != null) return moves.size();
-        return 0;
-    }
-
-    public Boolean isLoaded(String userId) {
-        Boolean isLoaded = mIsLoaded.get(userId);
-        if (isLoaded != null) return isLoaded;
-        else return false;
     }
 
     private void notifyObservers(String userId, String event, String key, Move move) {
@@ -401,6 +408,14 @@ public class MovesPresenter {
         notifyObservers(userId, event, null, null);
     }
 
+    public void loadMove(Friend friend, String moveId, boolean inProgress, final LoadMoveListener listener) {
+        MovesDatabaseHelper.loadMove(friend, moveId, inProgress, listener);
+    }
+
+    void pushMove(String moveId) {
+        LogsDatabaseHelper.pushLog(moveId);
+    }
+
     public interface MovesListener {
         void onStartMovesLoading(String userId);
 
@@ -413,5 +428,11 @@ public class MovesPresenter {
         void onMoveRemoved(String userId, String key, Move move);
 
         void onCompleteMovesLoading(String userId);
+    }
+
+    public interface LoadMoveListener {
+        void onMoveLoaded(String text);
+
+        void onFailed();
     }
 }

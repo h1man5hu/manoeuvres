@@ -18,7 +18,6 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import com.manoeuvres.android.R;
-import com.manoeuvres.android.database.DatabaseHelper;
 import com.manoeuvres.android.friends.findfriends.FacebookFriendsPresenter;
 import com.manoeuvres.android.friends.following.FollowingPresenter.FollowingListener;
 import com.manoeuvres.android.friends.Friend;
@@ -37,7 +36,6 @@ public class FollowingFragment extends Fragment implements FollowingListener {
     private RecyclerView mRecyclerView;
     private RecyclerView.Adapter mAdapter;
 
-    private NavigationView mNavigationView;
     private Menu mNavigationMenu;
 
     private ProgressBar mProgressBar;
@@ -75,8 +73,8 @@ public class FollowingFragment extends Fragment implements FollowingListener {
         mRecyclerView.setAdapter(mAdapter);
         mRecyclerView.addItemDecoration(new DividerItemDecoration(mMainActivity));
 
-        mNavigationView = (NavigationView) mMainActivity.findViewById(R.id.nav_view);
-        mNavigationMenu = mNavigationView.getMenu();
+        NavigationView navigationView = (NavigationView) mMainActivity.findViewById(R.id.nav_view);
+        mNavigationMenu = navigationView.getMenu();
 
         mProgressBar = (ProgressBar) rootView.findViewById(R.id.progress_bar_friends);
 
@@ -92,8 +90,9 @@ public class FollowingFragment extends Fragment implements FollowingListener {
         mMainActivity.setTitle(R.string.title_activity_main_following);
         mNavigationMenu.findItem(R.id.nav_following).setChecked(true);
 
-        mFacebookFriendsPresenter = FacebookFriendsPresenter.getInstance(mMainActivity.getApplicationContext());
-        mFacebookFriendsPresenter.updateFacebookFriends();
+        mFacebookFriendsPresenter = FacebookFriendsPresenter
+                .getInstance(mMainActivity.getApplicationContext())
+                .sync();
 
         mFollowingPresenter = FollowingPresenter.getInstance(mMainActivity.getApplicationContext())
                 .attach(this)
@@ -201,7 +200,7 @@ public class FollowingFragment extends Fragment implements FollowingListener {
             public void onClick(View view) {
                 mButton.setText(R.string.button_text_unfollowing);
                 final Friend friend = mFacebookFriendsPresenter.get(mFacebookFriendsPresenter.indexOf(mFollowingPresenter.get(getAdapterPosition())));
-                DatabaseHelper.unfollowFriend(friend);
+                mFollowingPresenter.unfollowFriend(friend);
             }
         }
     }

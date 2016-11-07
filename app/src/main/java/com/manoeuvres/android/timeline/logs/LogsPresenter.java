@@ -14,7 +14,7 @@ import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.ValueEventListener;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
-import com.manoeuvres.android.database.DatabaseHelper;
+import com.manoeuvres.android.timeline.TimelinePresenter;
 import com.manoeuvres.android.util.Constants;
 import com.manoeuvres.android.util.UniqueId;
 
@@ -24,7 +24,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 
-public class LogsPresenter {
+public class LogsPresenter implements TimelinePresenter {
     private static LogsPresenter ourInstance;
 
     private SimpleArrayMap<String, List<Log>> mLogs;
@@ -61,6 +61,7 @@ public class LogsPresenter {
         return ourInstance;
     }
 
+    @Override
     public LogsPresenter attach(Object component, String userId) {
         LogsListener listener = (LogsListener) component;
         LogsListener[] listeners = mObservers.get(userId);
@@ -87,6 +88,7 @@ public class LogsPresenter {
         return ourInstance;
     }
 
+    @Override
     public LogsPresenter detach(Object component, String userId) {
         LogsListener listener = (LogsListener) component;
         LogsListener[] listeners = mObservers.get(userId);
@@ -118,6 +120,7 @@ public class LogsPresenter {
         return ourInstance;
     }
 
+    @Override
     public LogsPresenter addFriend(String userId) {
 
         /*
@@ -136,15 +139,18 @@ public class LogsPresenter {
         }
 
         DatabaseReference countReference = mCountReferences.get(userId);
-        if (countReference == null) mCountReferences.put(userId
-                , DatabaseHelper.mMetaLogsReference.child(userId).child(Constants.FIREBASE_DATABASE_REFERENCE_META_MOVES_COUNT));
+        if (countReference == null) {
+            mCountReferences.put(userId, LogsDatabaseHelper.getLogsCountReference(userId));
+        }
         DatabaseReference dataReference = mDataReferences.get(userId);
-        if (dataReference == null) mDataReferences.put(userId
-                , DatabaseHelper.mLogsReference.child(userId));
+        if (dataReference == null) {
+            mDataReferences.put(userId, LogsDatabaseHelper.getLogsDataReference(userId));
+        }
 
         return ourInstance;
     }
 
+    @Override
     public LogsPresenter removeFriend(String userId) {
         stopSync(userId);
         if (mCountReferences.containsKey(userId)) mCountReferences.remove(userId);
@@ -157,6 +163,7 @@ public class LogsPresenter {
         return ourInstance;
     }
 
+    @Override
     public LogsPresenter sync(final String userId) {
         ValueEventListener logsCountListener = mCountListeners.get(userId);
         if (logsCountListener == null) {
@@ -225,7 +232,7 @@ public class LogsPresenter {
                                         limit = count;
                                     }
                                     if (updatedLogs.size() == limit) {
-                                        if (logs.size() > limit) {
+                                        if (logs != null && (logs.size() > limit)) {
                                             List<Log> removedLogs = new ArrayList<>(logs);
                                             Log log = new Log();
                                             for (int i = 0; i < removedLogs.size(); i++) {
@@ -291,6 +298,7 @@ public class LogsPresenter {
         return ourInstance;
     }
 
+    @Override
     public LogsPresenter stopSync(String userId) {
         DatabaseReference countReference = mCountReferences.get(userId);
         DatabaseReference dataReference = mDataReferences.get(userId);
@@ -309,38 +317,44 @@ public class LogsPresenter {
         return ourInstance;
     }
 
+    @Override
     public LogsPresenter sync() {
         Set<String> keys = mCountReferences.keySet();
         if (keys.size() > 0) for (String userId : keys) sync(userId);
         return ourInstance;
     }
 
+    @Override
     public LogsPresenter stopSync() {
         Set<String> keys = mCountReferences.keySet();
         if (keys.size() > 0) for (String userId : keys) stopSync(userId);
         return ourInstance;
     }
 
-    public Log get(String userId, int index) {
-        List<Log> logs = mLogs.get(userId);
-        if (logs != null && logs.size() > 0) return logs.get(index);
-        return null;
-    }
-
-    public List<Log> getAll(String userId) {
-        return mLogs.get(userId);
-    }
-
+    @Override
     public int size(String userId) {
         List<Log> logs = mLogs.get(userId);
         if (logs != null) return logs.size();
         return 0;
     }
 
+    @Override
     public Boolean isLoaded(String userId) {
         Boolean isLoaded = mIsLoaded.get(userId);
         if (isLoaded != null) return isLoaded;
         else return false;
+    }
+
+    @Override
+    public Log get(String userId, String index) {
+        List<Log> logs = mLogs.get(userId);
+        if (logs != null && logs.size() > 0) return logs.get(Integer.valueOf(index));
+        return null;
+    }
+
+    @Override
+    public List<Log> getAll(String userId) {
+        return mLogs.get(userId);
     }
 
     private void notifyObservers(String userId, String event, int index, Log log) {

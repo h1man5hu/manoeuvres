@@ -6,13 +6,14 @@ import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.ValueEventListener;
 import com.manoeuvres.android.friends.Friend;
-import com.manoeuvres.android.database.DatabaseHelper;
+import com.manoeuvres.android.friends.FriendsPresenter;
+import com.manoeuvres.android.login.AuthPresenter;
 import com.manoeuvres.android.util.Constants;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class RequestsPresenter {
+public class RequestsPresenter implements FriendsPresenter {
     private static RequestsPresenter ourInstance;
 
     private ChildEventListener mDataListener;
@@ -34,6 +35,7 @@ public class RequestsPresenter {
         return ourInstance;
     }
 
+    @Override
     public RequestsPresenter attach(Object component) {
         RequestsListener listener = (RequestsListener) component;
 
@@ -53,6 +55,7 @@ public class RequestsPresenter {
         return ourInstance;
     }
 
+    @Override
     public RequestsPresenter detach(Object component) {
         RequestsListener listener = (RequestsListener) component;
 
@@ -72,11 +75,18 @@ public class RequestsPresenter {
         return ourInstance;
     }
 
+    @Override
     public RequestsPresenter sync() {
+        final String userId = AuthPresenter.getCurrentUserId();
+        if (userId == null) return ourInstance;
+
         if (mCountListener == null) {
             notifyObservers(Constants.CALLBACK_START_LOADING);
+
             if (mRequests.size() == 0) notifyObservers(Constants.CALLBACK_INITIAL_LOADING);
-            mCountListener = DatabaseHelper.mUserRequestsCountReference.addValueEventListener(new ValueEventListener() {
+
+            mCountListener = RequestsDatabaseHelper.getRequestsCountReference(userId)
+                    .addValueEventListener(new ValueEventListener() {
                 @Override
                 public void onDataChange(DataSnapshot dataSnapshot) {
                     final int count = Integer.valueOf(dataSnapshot.getValue().toString());
@@ -86,7 +96,8 @@ public class RequestsPresenter {
                     else if (count > 0) {
                         if (mDataListener == null) {
 
-                            mDataListener = DatabaseHelper.mUserRequestsReference.addChildEventListener(new ChildEventListener() {
+                            mDataListener = RequestsDatabaseHelper.getRequestsDataReference(userId)
+                                    .addChildEventListener(new ChildEventListener() {
                                 @Override
                                 public void onChildAdded(DataSnapshot dataSnapshot, String s) {
                                     Friend friend = new Friend(dataSnapshot.getValue().toString());
@@ -109,7 +120,7 @@ public class RequestsPresenter {
                                         notifyObservers(Constants.CALLBACK_REMOVE_DATA, index, friend);
                                     }
 
-                                    if (mRequests.size() == count) {
+                                    if (mRequests.size() == count || mRequests.size() == 0) {
                                         notifyObservers(Constants.CALLBACK_COMPLETE_LOADING, index, friend);
                                     }
                                 }
@@ -142,40 +153,42 @@ public class RequestsPresenter {
         return ourInstance;
     }
 
+    @Override
     public RequestsPresenter stopSync() {
+        String userId = AuthPresenter.getCurrentUserId();
+        if (userId == null) return ourInstance;
+
         if (mDataListener != null) {
-            DatabaseHelper.mUserRequestsReference.removeEventListener(mDataListener);
+            RequestsDatabaseHelper.getRequestsDataReference(userId)
+                    .removeEventListener(mDataListener);
             mDataListener = null;
         }
         if (mCountListener != null) {
-            DatabaseHelper.mUserRequestsCountReference.removeEventListener(mCountListener);
+            RequestsDatabaseHelper.getRequestsCountReference(userId)
+                    .removeEventListener(mCountListener);
             mCountListener = null;
         }
         return ourInstance;
     }
 
+    @Override
     public Friend get(int index) {
         return mRequests.get(index);
     }
 
+    @Override
     public List<Friend> getAll() {
         return mRequests;
     }
 
+    @Override
     public int size() {
         return mRequests.size();
     }
 
+    @Override
     public boolean isLoaded() {
         return mIsLoaded;
-    }
-
-    public int indexOf(Friend friend) {
-        return mRequests.indexOf(friend);
-    }
-
-    public void clear() {
-        mRequests.clear();
     }
 
     private void notifyObservers(String event, int index, Friend friend) {
@@ -204,6 +217,14 @@ public class RequestsPresenter {
 
     private void notifyObservers(String event) {
         notifyObservers(event, 0, null);
+    }
+
+    void pushSeenRequests(List<Friend> requests) {
+        RequestsDatabaseHelper.pushSeenRequests(requests);
+    }
+
+    void acceptRequest(Friend friend) {
+        RequestsDatabaseHelper.acceptRequest(friend);
     }
 
     public interface RequestsListener {

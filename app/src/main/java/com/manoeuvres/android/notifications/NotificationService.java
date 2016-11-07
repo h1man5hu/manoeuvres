@@ -13,7 +13,6 @@ import android.support.v4.content.ContextCompat;
 
 import com.google.gson.Gson;
 import com.manoeuvres.android.R;
-import com.manoeuvres.android.database.DatabaseHelper;
 import com.manoeuvres.android.friends.findfriends.FacebookFriendsPresenter;
 import com.manoeuvres.android.friends.following.FollowingPresenter;
 import com.manoeuvres.android.friends.following.FollowingPresenter.FollowingListener;
@@ -68,7 +67,7 @@ public class NotificationService extends Service implements RequestsListener, Fo
 
             mSeenRequestsPresenter = SeenRequestsPresenter.getInstance().sync();
             mSeenFollowingPresenter = SeenFollowingPresenter.getInstance().sync();
-            mFacebookFriendsPresenter = FacebookFriendsPresenter.getInstance(getApplicationContext()).updateFacebookFriends();
+            mFacebookFriendsPresenter = FacebookFriendsPresenter.getInstance(getApplicationContext()).sync();
             mFollowingPresenter = FollowingPresenter.getInstance(getApplicationContext()).attach(this).sync();
             mMovesPresenter = MovesPresenter.getInstance(getApplicationContext());
             mLatestLogPresenter = LatestLogPresenter.getInstance(getApplicationContext());
@@ -96,6 +95,8 @@ public class NotificationService extends Service implements RequestsListener, Fo
         if (!mSeenFollowingPresenter.contains(friend))
             displayNotification(friend, Constants.NOTIFICATION_TYPE_FOLLOWING);
         mSharedPreferences.edit().putString(Constants.KEY_SHARED_PREF_DATA_FOLLOWING, mGson.toJson(mFollowingPresenter.getAll())).apply();
+        android.util.Log.v(Constants.TAG_LOG_SERVICE_NOTIFICATION, friend.getName() + " "
+                + " " + friend.getFirebaseId() + " " + friend.getFacebookId() + " added on Firebase.");
         mLatestLogPresenter.addFriend(friend.getFirebaseId()).attach(this, friend.getFirebaseId()).sync(friend.getFirebaseId());
     }
 
@@ -168,7 +169,7 @@ public class NotificationService extends Service implements RequestsListener, Fo
                 mNotificationManager.notify(UniqueId.getFollowingId(friend), builder.build());
                 break;
             case Constants.NOTIFICATION_TYPE_LOG:
-                DatabaseHelper.loadMove(friend, log.getMoveId(), inProgress, new DatabaseHelper.LoadMoveListener() {
+                mMovesPresenter.loadMove(friend, log.getMoveId(), inProgress, new MovesPresenter.LoadMoveListener() {
                     @Override
                     public void onMoveLoaded(String text) {
                         if (inProgress) {
@@ -179,6 +180,11 @@ public class NotificationService extends Service implements RequestsListener, Fo
                                     + ".";
                         }
                         displayLogNotification(builder, text, friend);
+                    }
+
+                    @Override
+                    public void onFailed() {
+
                     }
                 });
                 break;
@@ -241,7 +247,7 @@ public class NotificationService extends Service implements RequestsListener, Fo
             Friend friend = following.get(i);
             mLatestLogPresenter.addFriend(friend.getFirebaseId()).attach(this, friend.getFirebaseId()).sync(friend.getFirebaseId());
         }
-        DatabaseHelper.pushSeenFollowing(mFollowingPresenter.getAll());
+        mSeenFollowingPresenter.pushSeenFollowing(mFollowingPresenter.getAll());
     }
 
     @Nullable

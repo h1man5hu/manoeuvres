@@ -8,7 +8,7 @@
             android:id="@+id/nav_timeline"
             android:icon="@drawable/ic_timeline_black_24dp"
             android:orderInCategory="1"
-            android:title="@string/nav_menu_timeline"/>
+            android:title="@string/nav_menu_timeline" />
     </group>
 
     <group
@@ -18,22 +18,22 @@
             android:id="@+id/nav_followers"
             android:icon="@drawable/ic_group_black_24dp"
             android:orderInCategory="2"
-            android:title="@string/nav_menu_followers"/>
+            android:title="@string/nav_menu_followers" />
         <item
             android:id="@+id/nav_following"
             android:icon="@drawable/ic_group_black_24dp"
             android:orderInCategory="2"
-            android:title="@string/nav_menu_following"/>
+            android:title="@string/nav_menu_following" />
         <item
             android:id="@+id/nav_find_friends"
             android:icon="@drawable/ic_person_add_black_24dp"
             android:orderInCategory="2"
-            android:title="@string/nav_menu_find_friends"/>
+            android:title="@string/nav_menu_find_friends" />
         <item
             android:id="@+id/nav_requests"
             android:icon="@drawable/ic_contact_mail_black_24dp"
             android:orderInCategory="2"
-            android:title="@string/nav_menu_requests"/>
+            android:title="@string/nav_menu_requests" />
 
     </group>
 
@@ -41,6 +41,6 @@
         android:id="@+id/nav_log_out"
         android:icon="@drawable/ic_lock_black_24dp"
         android:orderInCategory="3"
-        android:title="@string/nav_menu_log_out"/>
+        android:title="@string/nav_menu_log_out" />
 
 </menu>

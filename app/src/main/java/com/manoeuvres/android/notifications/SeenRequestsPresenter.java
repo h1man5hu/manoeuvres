@@ -5,13 +5,14 @@ import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.ValueEventListener;
 import com.manoeuvres.android.friends.Friend;
-import com.manoeuvres.android.database.DatabaseHelper;
+import com.manoeuvres.android.friends.requests.RequestsDatabaseHelper;
+import com.manoeuvres.android.login.AuthPresenter;
 import com.manoeuvres.android.util.Constants;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class SeenRequestsPresenter {
+class SeenRequestsPresenter implements SeenPresenter {
     private static SeenRequestsPresenter ourInstance;
 
     private ValueEventListener mListener;
@@ -30,6 +31,7 @@ public class SeenRequestsPresenter {
         return ourInstance;
     }
 
+    @Override
     public SeenRequestsPresenter attach(Object component) {
         SeenRequestsListener listener = (SeenRequestsListener) component;
 
@@ -49,6 +51,7 @@ public class SeenRequestsPresenter {
         return ourInstance;
     }
 
+    @Override
     public SeenRequestsPresenter detach(Object component) {
         SeenRequestsListener listener = (SeenRequestsListener) component;
 
@@ -68,8 +71,13 @@ public class SeenRequestsPresenter {
         return ourInstance;
     }
 
+    @Override
     public SeenRequestsPresenter sync() {
         if (mListener == null) {
+
+            String userId = AuthPresenter.getCurrentUserId();
+            if (userId == null) return ourInstance;
+
             mListener = new ValueEventListener() {
                 @Override
                 public void onDataChange(DataSnapshot dataSnapshot) {
@@ -88,19 +96,25 @@ public class SeenRequestsPresenter {
 
                 }
             };
-            DatabaseHelper.mUserSeenRequestsReference.addValueEventListener(mListener);
+            RequestsDatabaseHelper.getSeenRequestsReference(userId).addValueEventListener(mListener);
         }
         return ourInstance;
     }
 
+    @Override
     public SeenRequestsPresenter stopSync() {
         if (mListener != null) {
-            DatabaseHelper.mUserSeenRequestsReference.removeEventListener(mListener);
+
+            String userId = AuthPresenter.getCurrentUserId();
+            if (userId == null) return ourInstance;
+
+            RequestsDatabaseHelper.getSeenRequestsReference(userId).removeEventListener(mListener);
             mListener = null;
         }
         return ourInstance;
     }
 
+    @Override
     public boolean contains(Friend friend) {
         return mSeenRequests.contains(friend);
     }
@@ -117,7 +131,7 @@ public class SeenRequestsPresenter {
         }
     }
 
-    public interface SeenRequestsListener {
+    interface SeenRequestsListener {
         void onSeenRequestsLoaded();
     }
 }

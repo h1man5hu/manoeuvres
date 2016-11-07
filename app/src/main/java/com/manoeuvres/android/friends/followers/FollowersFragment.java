@@ -17,7 +17,6 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import com.manoeuvres.android.R;
-import com.manoeuvres.android.database.DatabaseHelper;
 import com.manoeuvres.android.friends.findfriends.FacebookFriendsPresenter;
 import com.manoeuvres.android.friends.followers.FollowersPresenter.FollowersListener;
 import com.manoeuvres.android.friends.Friend;
@@ -35,7 +34,6 @@ public class FollowersFragment extends Fragment implements FollowersListener {
     private RecyclerView mRecyclerView;
     private RecyclerView.Adapter mAdapter;
 
-    private NavigationView mNavigationView;
     private Menu mNavigationMenu;
 
     private ProgressBar mProgressBar;
@@ -70,8 +68,8 @@ public class FollowersFragment extends Fragment implements FollowersListener {
         mRecyclerView.setAdapter(mAdapter);
         mRecyclerView.addItemDecoration(new DividerItemDecoration(mMainActivity));
 
-        mNavigationView = (NavigationView) mMainActivity.findViewById(R.id.nav_view);
-        mNavigationMenu = mNavigationView.getMenu();
+        NavigationView navigationView = (NavigationView) mMainActivity.findViewById(R.id.nav_view);
+        mNavigationMenu = navigationView.getMenu();
 
         mProgressBar = (ProgressBar) rootView.findViewById(R.id.progress_bar_friends);
 
@@ -87,8 +85,9 @@ public class FollowersFragment extends Fragment implements FollowersListener {
         mMainActivity.setTitle(R.string.title_activity_main_followers);
         mNavigationMenu.findItem(R.id.nav_followers).setChecked(true);
 
-        mFacebookFriendsPresenter = FacebookFriendsPresenter.getInstance(mMainActivity.getApplicationContext())
-                .updateFacebookFriends();
+        mFacebookFriendsPresenter = FacebookFriendsPresenter
+                .getInstance(mMainActivity.getApplicationContext())
+                .sync();
 
         mFollowersPresenter = FollowersPresenter.getInstance()
                 .attach(this)
@@ -189,7 +188,7 @@ public class FollowersFragment extends Fragment implements FollowersListener {
             public void onClick(View view) {
                 mButton.setText(R.string.button_text_removing);
                 final Friend friend = mFacebookFriendsPresenter.get(mFacebookFriendsPresenter.indexOf(mFollowersPresenter.get(getAdapterPosition())));
-                DatabaseHelper.removeFollower(friend);
+                mFollowersPresenter.removeFollower(friend);
             }
         }
     }

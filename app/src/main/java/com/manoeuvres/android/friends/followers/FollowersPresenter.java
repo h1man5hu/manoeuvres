@@ -1,18 +1,21 @@
 package com.manoeuvres.android.friends.followers;
 
 
+import android.support.annotation.NonNull;
+
 import com.google.firebase.database.ChildEventListener;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.ValueEventListener;
 import com.manoeuvres.android.friends.Friend;
-import com.manoeuvres.android.database.DatabaseHelper;
+import com.manoeuvres.android.friends.FriendsPresenter;
+import com.manoeuvres.android.login.AuthPresenter;
 import com.manoeuvres.android.util.Constants;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class FollowersPresenter {
+class FollowersPresenter implements FriendsPresenter {
     private static FollowersPresenter ourInstance;
 
     private ChildEventListener mDataListener;
@@ -34,7 +37,8 @@ public class FollowersPresenter {
         return ourInstance;
     }
 
-    public FollowersPresenter attach(Object component) {
+    @Override
+    public FollowersPresenter attach(@NonNull Object component) {
         FollowersListener listener = (FollowersListener) component;
 
         /* If the observer is already attached, return. */
@@ -53,11 +57,13 @@ public class FollowersPresenter {
         return ourInstance;
     }
 
-    public FollowersPresenter detach(Object component) {
+    @Override
+    public FollowersPresenter detach(@NonNull Object component) {
         FollowersListener listener = (FollowersListener) component;
 
         /* If there are no observers, free the memory for garbage collection. */
         if (mObservers.length == 0) {
+            stopSync();
             ourInstance = null;
             return null;
         }
@@ -71,106 +77,119 @@ public class FollowersPresenter {
         return ourInstance;
     }
 
+    @Override
     public FollowersPresenter sync() {
+        final String userId = AuthPresenter.getCurrentUserId();
+        if (userId == null) return ourInstance;
+
         if (mCountListener == null) {
             notifyObservers(Constants.CALLBACK_START_LOADING);
 
             if (mFollowers.size() == 0) notifyObservers(Constants.CALLBACK_INITIAL_LOADING);
 
-            mCountListener = DatabaseHelper.mUserFollowersCountReference.addValueEventListener(new ValueEventListener() {
-                @Override
-                public void onDataChange(DataSnapshot dataSnapshot) {
-                    final int count = Integer.valueOf(dataSnapshot.getValue().toString());
+            mCountListener = FollowersDatabaseHelper.getFollowersCountReference(userId)
+                    .addValueEventListener(new ValueEventListener() {
+                        @Override
+                        public void onDataChange(DataSnapshot dataSnapshot) {
+                            final int count = Integer.valueOf(dataSnapshot.getValue().toString());
 
-                    if (count == 0) notifyObservers(Constants.CALLBACK_COMPLETE_LOADING);
+                            if (count == 0) notifyObservers(Constants.CALLBACK_COMPLETE_LOADING);
 
-                    if (count > 0) {
-                        if (mDataListener == null) {
+                            if (count > 0) {
+                                if (mDataListener == null) {
 
-                            mDataListener = DatabaseHelper.mUserFollowersReference.addChildEventListener(new ChildEventListener() {
-                                @Override
-                                public void onChildAdded(DataSnapshot dataSnapshot, String s) {
-                                    Friend friend = new Friend(dataSnapshot.getValue().toString());
-                                    if (!mFollowers.contains(friend)) {
-                                        mFollowers.add(friend);
-                                        notifyObservers(Constants.CALLBACK_ADD_DATA, mFollowers.size() - 1, friend);
-                                    }
+                                    mDataListener = FollowersDatabaseHelper.getFollowersDataReference(userId)
+                                            .addChildEventListener(new ChildEventListener() {
+                                                @Override
+                                                public void onChildAdded(DataSnapshot dataSnapshot, String s) {
+                                                    Friend friend = new Friend(dataSnapshot.getValue().toString());
+                                                    if (!mFollowers.contains(friend)) {
+                                                        mFollowers.add(friend);
+                                                        notifyObservers(Constants.CALLBACK_ADD_DATA, mFollowers.size() - 1, friend);
+                                                    }
 
-                                    if (mFollowers.size() == count)
-                                        notifyObservers(Constants.CALLBACK_COMPLETE_LOADING);
+                                                    if (mFollowers.size() == count) {
+                                                        notifyObservers(Constants.CALLBACK_COMPLETE_LOADING);
+                                                    }
+                                                }
+
+                                                @Override
+                                                public void onChildRemoved(DataSnapshot dataSnapshot) {
+                                                    Friend friend = new Friend(dataSnapshot.getValue().toString());
+                                                    int index = mFollowers.indexOf(friend);
+                                                    if (index != -1) {
+                                                        mFollowers.remove(index);
+                                                        notifyObservers(Constants.CALLBACK_REMOVE_DATA, index, friend);
+                                                    }
+
+                                                    if (mFollowers.size() == count || mFollowers.size() == 0)
+                                                        notifyObservers(Constants.CALLBACK_COMPLETE_LOADING);
+                                                }
+
+                                                @Override
+                                                public void onChildChanged(DataSnapshot dataSnapshot, String s) {
+
+                                                }
+
+                                                @Override
+                                                public void onChildMoved(DataSnapshot dataSnapshot, String s) {
+
+                                                }
+
+                                                @Override
+                                                public void onCancelled(DatabaseError databaseError) {
+
+                                                }
+                                            });
                                 }
-
-                                @Override
-                                public void onChildRemoved(DataSnapshot dataSnapshot) {
-                                    Friend friend = new Friend(dataSnapshot.getValue().toString());
-                                    int index = mFollowers.indexOf(friend);
-                                    if (index != -1) {
-                                        mFollowers.remove(index);
-                                        notifyObservers(Constants.CALLBACK_REMOVE_DATA, index, friend);
-                                    }
-
-                                    if (mFollowers.size() == count)
-                                        notifyObservers(Constants.CALLBACK_COMPLETE_LOADING);
-                                }
-
-                                @Override
-                                public void onChildChanged(DataSnapshot dataSnapshot, String s) {
-
-                                }
-
-                                @Override
-                                public void onChildMoved(DataSnapshot dataSnapshot, String s) {
-
-                                }
-
-                                @Override
-                                public void onCancelled(DatabaseError databaseError) {
-
-                                }
-                            });
+                            }
                         }
-                    }
-                }
 
-                @Override
-                public void onCancelled(DatabaseError databaseError) {
+                        @Override
+                        public void onCancelled(DatabaseError databaseError) {
 
-                }
-            });
+                        }
+                    });
         }
         return ourInstance;
     }
 
+    @Override
     public FollowersPresenter stopSync() {
+        String userId = AuthPresenter.getCurrentUserId();
+        if (userId == null) return ourInstance;
+
         if (mDataListener != null) {
-            DatabaseHelper.mUserFollowersReference.removeEventListener(mDataListener);
+            FollowersDatabaseHelper.getFollowersDataReference(userId)
+                    .removeEventListener(mDataListener);
             mDataListener = null;
         }
         if (mCountListener != null) {
-            DatabaseHelper.mUserFollowersCountReference.removeEventListener(mCountListener);
+            FollowersDatabaseHelper.getFollowersCountReference(userId)
+                    .removeEventListener(mCountListener);
             mCountListener = null;
         }
         return ourInstance;
     }
 
+    @Override
     public Friend get(int index) {
         return mFollowers.get(index);
     }
 
+    @Override
     public List<Friend> getAll() {
         return mFollowers;
     }
 
-    public boolean isLoaded() {
-        return mIsLoaded;
-    }
-
+    @Override
     public int size() {
         return mFollowers.size();
     }
 
-    public void clear() {
-        mFollowers.clear();
+    @Override
+    public boolean isLoaded() {
+        return mIsLoaded;
     }
 
     private void notifyObservers(String event, int index, Friend friend) {
@@ -202,7 +221,11 @@ public class FollowersPresenter {
         notifyObservers(event, 0, null);
     }
 
-    public interface FollowersListener {
+    void removeFollower(Friend friend) {
+        FollowersDatabaseHelper.removeFollower(friend);
+    }
+
+    interface FollowersListener {
         void onStartFollowersLoading();
 
         void onFollowersInitialization();

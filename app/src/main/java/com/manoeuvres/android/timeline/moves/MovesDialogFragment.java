@@ -15,8 +15,6 @@ import android.widget.TextView;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.manoeuvres.android.R;
-import com.manoeuvres.android.database.DatabaseHelper;
-import com.manoeuvres.android.timeline.logs.Log;
 import com.manoeuvres.android.views.DividerItemDecoration;
 
 
@@ -95,7 +93,7 @@ public class MovesDialogFragment extends DialogFragment {
                         Move move = (Move) moves[getAdapterPosition()];
                         String moveId = mMovesPresenter.getKey(mUserId, move);
                         if (moveId != null) {
-                            DatabaseHelper.pushMove(new Log(moveId));
+                            mMovesPresenter.pushMove(moveId);
                             dismiss();
                         }
                     }

@@ -13,14 +13,15 @@ import com.google.firebase.database.ValueEventListener;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.manoeuvres.android.friends.Friend;
-import com.manoeuvres.android.database.DatabaseHelper;
+import com.manoeuvres.android.friends.FriendsPresenter;
+import com.manoeuvres.android.login.AuthPresenter;
 import com.manoeuvres.android.util.Constants;
 
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.List;
 
-public class FollowingPresenter {
+public class FollowingPresenter implements FriendsPresenter {
     private static FollowingPresenter ourInstance;
 
     private ChildEventListener mDataListener;
@@ -60,6 +61,7 @@ public class FollowingPresenter {
         return ourInstance;
     }
 
+    @Override
     public FollowingPresenter attach(Object component) {
         FollowingListener listener = (FollowingListener) component;
 
@@ -79,11 +81,13 @@ public class FollowingPresenter {
         return ourInstance;
     }
 
+    @Override
     public FollowingPresenter detach(Object component) {
         FollowingListener listener = (FollowingListener) component;
 
         /* If there are no observers, free the memory for garbage collection. */
         if (mObservers.length == 0) {
+            stopSync();
             ourInstance = null;
             return null;
         }
@@ -97,181 +101,189 @@ public class FollowingPresenter {
         return ourInstance;
     }
 
+    @Override
     public FollowingPresenter sync() {
+        final String userId = AuthPresenter.getCurrentUserId();
+        if (userId == null) return ourInstance;
+
         if (mCountListener == null) {
             notifyObservers(Constants.CALLBACK_START_LOADING);
 
             if (mFollowing.size() == 0) notifyObservers(Constants.CALLBACK_INITIAL_LOADING);
 
-            mCountListener = DatabaseHelper.mUserFollowingCountReference.addValueEventListener(new ValueEventListener() {
-                @Override
-                public void onDataChange(DataSnapshot dataSnapshot) {
-                    final int count = Integer.valueOf(dataSnapshot.getValue().toString());
-
-                    /*
-                     * If the count on the Firebase database is zero but there are friends in the cached list,
-                     * remove all of them.
-                     */
-                    if (count == 0) {
-                        if (mFollowing.size() > 0) {
-                            Friend friend = new Friend();
-                            for (int i = 0; i < mFollowing.size(); i++) {
-                                Friend removedFriend = mFollowing.get(i);
-                                friend.setFirebaseId(removedFriend.getFirebaseId());
-                                mFollowing.remove(removedFriend);
-                                notifyObservers(Constants.CALLBACK_REMOVE_DATA, mFollowing.indexOf(friend), friend);
-                            }
-                        }
-                        notifyObservers(Constants.CALLBACK_COMPLETE_LOADING);
-                    } else if (count > 0) {
-                        if (mDataListener == null) {
+            mCountListener = FollowingDatabaseHelper.getFollowingCountReference(userId)
+                    .addValueEventListener(new ValueEventListener() {
+                        @Override
+                        public void onDataChange(DataSnapshot dataSnapshot) {
+                            final int count;
+                            Object value = dataSnapshot.getValue();
+                            if (value != null)
+                                count = Integer.valueOf(value.toString());
+                            else count = 0;
 
                             /*
-                            * In case not all but some of the friends were removed, this list will
-                            * be subtracted from the cached list to get the friends which were removed.
-                            * Each friend on the Firebase database is added to this list.
-                            * The subtraction will be done when all the friends have been retrieved from the
-                            * Firebase database.
-                            */
-                            final List<Friend> updatedFollowing = new ArrayList<>();
+                             * If the count on the Firebase database is zero but there are friends in the cached list,
+                             * remove all of them.
+                             */
+                            if (count == 0) {
+                                if (mFollowing.size() > 0) {
+                                    Friend friend = new Friend();
+                                    for (int i = 0; i < mFollowing.size(); i++) {
+                                        Friend removedFriend = mFollowing.get(i);
+                                        friend.setFirebaseId(removedFriend.getFirebaseId());
+                                        mFollowing.remove(removedFriend);
+                                        notifyObservers(Constants.CALLBACK_REMOVE_DATA, mFollowing.indexOf(friend), friend);
+                                    }
+                                }
+                                notifyObservers(Constants.CALLBACK_COMPLETE_LOADING);
+                            } else if (count > 0) {
+                                if (mDataListener == null) {
 
-                            mDataListener = DatabaseHelper.mUserFollowingReference.addChildEventListener(new ChildEventListener() {
-                                @Override
-                                public void onChildAdded(DataSnapshot dataSnapshot, String s) {
-                                    final String firebaseId = dataSnapshot.getValue().toString();
+                                    /*
+                                    * In case not all but some of the friends were removed, this list will
+                                    * be subtracted from the cached list to get the friends which were removed.
+                                    * Each friend on the Firebase database is added to this list.
+                                    * The subtraction will be done when all the friends have been retrieved from the
+                                    * Firebase database.
+                                    */
+                                    final List<Friend> updatedFollowing = new ArrayList<>();
 
-                                    /* Get the details of the added friend from the users reference using the firebase id. */
-                                    DatabaseHelper.mUsersReference.child(firebaseId).addListenerForSingleValueEvent(new ValueEventListener() {
-                                        @Override
-                                        public void onDataChange(DataSnapshot dataSnapshot) {
-                                            Friend friend = dataSnapshot.getValue(Friend.class);
-                                            friend.setFirebaseId(firebaseId);
-                                            int index = mFollowing.indexOf(friend);
-                                            if (index == -1) {
-                                                mFollowing.add(friend);
-                                                notifyObservers(Constants.CALLBACK_ADD_DATA, index, friend);
-                                            } else {
-                                                Friend oldFriend = mFollowing.get(mFollowing.indexOf(friend));
-                                                String oldName = oldFriend.getName();
-                                                String newName = friend.getName();
-                                                if (oldName != null && !oldName.equals(newName)) {
-                                                    oldFriend.setName(newName);
-                                                    notifyObservers(Constants.CALLBACK_CHANGE_DATA, mFollowing.indexOf(oldFriend), oldFriend);
+                                    mDataListener = FollowingDatabaseHelper.getFollowingDataReference(userId)
+                                            .addChildEventListener(new ChildEventListener() {
+                                                @Override
+                                                public void onChildAdded(DataSnapshot dataSnapshot, String s) {
+                                                    final String firebaseId = dataSnapshot.getValue().toString();
+
+                                                    /* Get the details of the added friend from the users reference using the firebase id. */
+                                                    AuthPresenter.getUserProfile(userId, new AuthPresenter.UserProfileListener() {
+                                                        @Override
+                                                        public void onProfileLoaded(Friend friend) {
+                                                            friend.setFirebaseId(firebaseId);
+                                                            int index = mFollowing.indexOf(friend);
+                                                            if (index == -1) {
+                                                                mFollowing.add(friend);
+                                                                notifyObservers(Constants.CALLBACK_ADD_DATA, index, friend);
+                                                            } else {
+                                                                Friend oldFriend = mFollowing.get(mFollowing.indexOf(friend));
+                                                                String oldName = oldFriend.getName();
+                                                                String newName = friend.getName();
+                                                                if (oldName != null && !oldName.equals(newName)) {
+                                                                    oldFriend.setName(newName);
+                                                                    notifyObservers(Constants.CALLBACK_CHANGE_DATA, mFollowing.indexOf(oldFriend), oldFriend);
+                                                                }
+                                                            }
+
+                                                            index = updatedFollowing.indexOf(friend);
+                                                            if (index == -1)
+                                                                updatedFollowing.add(friend);
+
+                                                            /*
+                                                             * All the friends have been retrieved, subtract the list and remove menu items
+                                                             * for removed friends, if any.
+                                                             */
+                                                            if (updatedFollowing.size() == count) {
+                                                                if (mFollowing.size() > count) {
+                                                                    List<Friend> removedFollowing = new ArrayList<>(mFollowing);
+                                                                    removedFollowing.removeAll(updatedFollowing);
+                                                                    for (int i = 0; i < removedFollowing.size(); i++) {
+                                                                        Friend removedFriend = removedFollowing.get(i);
+                                                                        friend.setFirebaseId(removedFriend.getFirebaseId());
+                                                                        index = mFollowing.indexOf(removedFriend);
+                                                                        mFollowing.remove(removedFriend);
+                                                                        notifyObservers(Constants.CALLBACK_REMOVE_DATA, index, friend);
+                                                                    }
+                                                                }
+                                                                notifyObservers(Constants.CALLBACK_COMPLETE_LOADING);
+                                                            }
+                                                        }
+
+                                                        @Override
+                                                        public void onFailed() {
+
+                                                        }
+                                                    });
                                                 }
-                                            }
 
-                                            index = updatedFollowing.indexOf(friend);
-                                            if (index == -1) updatedFollowing.add(friend);
-
-                                            /*
-                                             * All the friends have been retrieved, subtract the list and remove menu items
-                                             * for removed friends, if any.
-                                             */
-                                            if (updatedFollowing.size() == count) {
-                                                if (mFollowing.size() > count) {
-                                                    List<Friend> removedFollowing = new ArrayList<>(mFollowing);
-                                                    removedFollowing.removeAll(updatedFollowing);
-                                                    for (int i = 0; i < removedFollowing.size(); i++) {
-                                                        Friend removedFriend = removedFollowing.get(i);
-                                                        friend.setFirebaseId(removedFriend.getFirebaseId());
-                                                        index = mFollowing.indexOf(removedFriend);
-                                                        mFollowing.remove(removedFriend);
+                                                @Override
+                                                public void onChildRemoved(DataSnapshot dataSnapshot) {
+                                                    Friend friend = new Friend(dataSnapshot.getValue().toString());
+                                                    int index = mFollowing.indexOf(friend);
+                                                    if (index != -1) {
+                                                        mFollowing.remove(index);
                                                         notifyObservers(Constants.CALLBACK_REMOVE_DATA, index, friend);
                                                     }
+                                                    index = updatedFollowing.indexOf(friend);
+                                                    if (index != -1) {
+                                                        updatedFollowing.remove(index);
+                                                    }
+                                                    if (updatedFollowing.size() == count || updatedFollowing.size() == 0)
+                                                        notifyObservers(Constants.CALLBACK_COMPLETE_LOADING);
                                                 }
-                                                notifyObservers(Constants.CALLBACK_COMPLETE_LOADING);
-                                            }
-                                        }
 
-                                        @Override
-                                        public void onCancelled(DatabaseError databaseError) {
+                                                @Override
+                                                public void onChildChanged(DataSnapshot dataSnapshot, String s) {
 
-                                        }
-                                    });
+                                                }
+
+                                                @Override
+                                                public void onChildMoved(DataSnapshot dataSnapshot, String s) {
+
+                                                }
+
+                                                @Override
+                                                public void onCancelled(DatabaseError databaseError) {
+
+                                                }
+                                            });
                                 }
-
-                                @Override
-                                public void onChildRemoved(DataSnapshot dataSnapshot) {
-                                    Friend friend = new Friend(dataSnapshot.getValue().toString());
-                                    int index = mFollowing.indexOf(friend);
-                                    if (index != -1) {
-                                        mFollowing.remove(index);
-                                        notifyObservers(Constants.CALLBACK_REMOVE_DATA, index, friend);
-                                    }
-                                    index = updatedFollowing.indexOf(friend);
-                                    if (index != -1) {
-                                        updatedFollowing.remove(index);
-                                    }
-                                    if (updatedFollowing.size() == count)
-                                        notifyObservers(Constants.CALLBACK_COMPLETE_LOADING);
-                                }
-
-                                @Override
-                                public void onChildChanged(DataSnapshot dataSnapshot, String s) {
-
-                                }
-
-                                @Override
-                                public void onChildMoved(DataSnapshot dataSnapshot, String s) {
-
-                                }
-
-                                @Override
-                                public void onCancelled(DatabaseError databaseError) {
-
-                                }
-                            });
+                            }
                         }
-                    }
-                }
 
-                @Override
-                public void onCancelled(DatabaseError databaseError) {
+                        @Override
+                        public void onCancelled(DatabaseError databaseError) {
 
-                }
-            });
+                        }
+                    });
         }
         return ourInstance;
     }
 
+    @Override
     public FollowingPresenter stopSync() {
+        String userId = AuthPresenter.getCurrentUserId();
+        if (userId == null) return ourInstance;
+
         if (mDataListener != null) {
-            DatabaseHelper.mUserFollowingReference.removeEventListener(mDataListener);
+            FollowingDatabaseHelper.getFollowingDataReference(userId)
+                    .removeEventListener(mDataListener);
             mDataListener = null;
         }
+
         if (mCountListener != null) {
-            DatabaseHelper.mUserFollowingCountReference.removeEventListener(mCountListener);
+            FollowingDatabaseHelper.getFollowingCountReference(userId)
+                    .removeEventListener(mCountListener);
             mCountListener = null;
         }
+
         return ourInstance;
     }
 
-    /*
-     * The MainActivity updates the cache when it is stopped. If a friend is removed in the background,
-     * this method compares the new friends with the cached list, and returns a list of friends which
-     * were removed, if any.
-     */
-    public List<Friend> getRemovedFollowing() {
-        String friendList = mSharedPreferences.getString(Constants.KEY_SHARED_PREF_MENU_ITEMS_FOLLOWING, "");
-        List<Friend> following = mGson.fromJson(friendList, mType);
-        if (following != null && mFollowing != null) {
-            following.removeAll(mFollowing);
-        }
-        return following;
-    }
-
+    @Override
     public Friend get(int index) {
         return mFollowing.get(index);
     }
 
+    @Override
     public List<Friend> getAll() {
         return mFollowing;
     }
 
+    @Override
     public int size() {
         return mFollowing.size();
     }
 
+    @Override
     public boolean isLoaded() {
         return mIsLoaded;
     }
@@ -305,6 +317,24 @@ public class FollowingPresenter {
 
     private void notifyObservers(String event) {
         notifyObservers(event, 0, null);
+    }
+
+    /*
+     * The MainActivity updates the cache when it is stopped. If a friend is removed in the background,
+     * this method compares the new friends with the cached list, and returns a list of friends which
+     * were removed, if any.
+     */
+    public List<Friend> getRemovedFollowing() {
+        String friendList = mSharedPreferences.getString(Constants.KEY_SHARED_PREF_MENU_ITEMS_FOLLOWING, "");
+        List<Friend> following = mGson.fromJson(friendList, mType);
+        if (following != null && mFollowing != null) {
+            following.removeAll(mFollowing);
+        }
+        return following;
+    }
+
+    void unfollowFriend(Friend friend) {
+        FollowingDatabaseHelper.unfollowFriend(friend);
     }
 
     public interface FollowingListener {

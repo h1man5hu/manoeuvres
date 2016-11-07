@@ -225,13 +225,13 @@ public class TimelineFragment extends Fragment implements MovesListener, LogsLis
     public void onLogAdded(String userId, int index, Log log) {
         mAdapter.notifyItemInserted(0);
         mRecyclerView.scrollToPosition(0);
-        mSharedPreferences.edit().putString(UniqueId.getLatestLogKey(mCurrentUserId), mGson.toJson(mLogsPresenter.get(mCurrentUserId, 0))).apply();
+        mSharedPreferences.edit().putString(UniqueId.getLatestLogKey(mCurrentUserId), mGson.toJson(mLogsPresenter.get(mCurrentUserId, "0"))).apply();
     }
 
     @Override
     public void onLogChanged(String userId, int index, Log log) {
         mAdapter.notifyItemChanged(index);
-        mSharedPreferences.edit().putString(UniqueId.getLatestLogKey(mCurrentUserId), mGson.toJson(mLogsPresenter.get(mCurrentUserId, index))).apply();
+        mSharedPreferences.edit().putString(UniqueId.getLatestLogKey(mCurrentUserId), mGson.toJson(mLogsPresenter.get(mCurrentUserId, String.valueOf(index)))).apply();
         mNotificationManager.cancel(UniqueId.getLogId(new Friend(mCurrentUserId)));
     }
 
@@ -244,7 +244,7 @@ public class TimelineFragment extends Fragment implements MovesListener, LogsLis
     public void onCompleteLogsLoading(String userId) {
         hideProgress();
         mNotificationManager.cancel(UniqueId.getLogId(new Friend(mCurrentUserId)));
-        mSharedPreferences.edit().putString(UniqueId.getLatestLogKey(userId), mGson.toJson(mLogsPresenter.get(userId, 0))).apply();
+        mSharedPreferences.edit().putString(UniqueId.getLatestLogKey(userId), mGson.toJson(mLogsPresenter.get(userId, "0"))).apply();
     }
 
     @Override
@@ -319,7 +319,7 @@ public class TimelineFragment extends Fragment implements MovesListener, LogsLis
 
         @Override
         public void onBindViewHolder(TimelineAdapter.ViewHolder holder, int position) {
-            Log log = mLogsPresenter.get(mCurrentUserId, position);
+            Log log = mLogsPresenter.get(mCurrentUserId, String.valueOf(position));
             Move move = mMovesPresenter.get(mCurrentUserId, log.getMoveId());
             /*
              * The text to be displayed depends on the status of the log. If it is in progress,

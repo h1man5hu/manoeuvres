@@ -17,7 +17,6 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import com.manoeuvres.android.R;
-import com.manoeuvres.android.database.DatabaseHelper;
 import com.manoeuvres.android.friends.following.FollowingPresenter;
 import com.manoeuvres.android.friends.following.FollowingPresenter.FollowingListener;
 import com.manoeuvres.android.friends.Friend;
@@ -39,13 +38,13 @@ public class FindFriendsFragment extends Fragment implements FollowingListener {
     private RecyclerView mRecyclerView;
     private RecyclerView.Adapter mAdapter;
 
-    private NavigationView mNavigationView;
     private Menu mNavigationMenu;
 
     private ProgressBar mProgressBar;
     private TextView mBackgroundTextView;
 
     private List<Friend> mUnfollowedFriends;
+
 
     public FindFriendsFragment() {
         // Required empty public constructor
@@ -75,8 +74,8 @@ public class FindFriendsFragment extends Fragment implements FollowingListener {
         mRecyclerView.setAdapter(mAdapter);
         mRecyclerView.addItemDecoration(new DividerItemDecoration(mMainActivity));
 
-        mNavigationView = (NavigationView) mMainActivity.findViewById(R.id.nav_view);
-        mNavigationMenu = mNavigationView.getMenu();
+        NavigationView navigationView = (NavigationView) mMainActivity.findViewById(R.id.nav_view);
+        mNavigationMenu = navigationView.getMenu();
 
         mProgressBar = (ProgressBar) rootView.findViewById(R.id.progress_bar_friends);
 
@@ -93,12 +92,13 @@ public class FindFriendsFragment extends Fragment implements FollowingListener {
         mNavigationMenu.findItem(R.id.nav_find_friends).setChecked(true);
 
         mFacebookFriendsPresenter = FacebookFriendsPresenter.getInstance(mMainActivity.getApplicationContext())
-                .updateFacebookFriends();
+                .sync();
 
         mFollowingPresenter = FollowingPresenter.getInstance(mMainActivity.getApplicationContext())
                 .attach(this)
                 .sync();
 
+        if (mUnfollowedFriends == null || mUnfollowedFriends.size() == 0) showProgress();
         if (mFollowingPresenter.isLoaded()) showData();
     }
 
@@ -117,11 +117,16 @@ public class FindFriendsFragment extends Fragment implements FollowingListener {
     }
 
     private void hideProgress() {
-        if (mFacebookFriendsPresenter.size() > 0) {
+        int unfollowedFriends = mFacebookFriendsPresenter.size() - mFollowingPresenter.size();
+        if (unfollowedFriends > 0) {
             mRecyclerView.setVisibility(View.VISIBLE);
             mBackgroundTextView.setVisibility(View.INVISIBLE);
         } else {
-            mBackgroundTextView.setText(R.string.no_friends);
+            if (mFacebookFriendsPresenter.size() == 0) {
+                mBackgroundTextView.setText(R.string.no_friends);
+            } else {
+                mBackgroundTextView.setText(R.string.no_new_friends);
+            }
             mBackgroundTextView.setVisibility(View.VISIBLE);
             mRecyclerView.setVisibility(View.INVISIBLE);
         }
@@ -187,12 +192,19 @@ public class FindFriendsFragment extends Fragment implements FollowingListener {
                 if (index != -1) {
                     friend = mFacebookFriendsPresenter.get(index);
                     holder.mFriendName.setText(friend.getName());
-                    holder.mButton.setText(R.string.button_text_follow);
-                    DatabaseHelper.isRequested(friend, new DatabaseHelper.RequestListener() {
+                    mFacebookFriendsPresenter.isRequested(friend, new FacebookFriendsPresenter.RequestListener() {
                         @Override
                         public void onComplete(boolean isRequested) {
                             if (isRequested)
                                 holder.mButton.setText(R.string.button_text_cancel_request);
+                            else holder.mButton.setText(R.string.button_text_follow);
+                            holder.mButton.setClickable(true);
+                        }
+
+                        @Override
+                        public void onFailed() {
+                            holder.mButton.setText(R.string.button_text_network_error);
+                            holder.mButton.setClickable(false);
                         }
                     });
                 }
@@ -214,7 +226,8 @@ public class FindFriendsFragment extends Fragment implements FollowingListener {
                 mFriendName = (TextView) view.findViewById(R.id.textView_list_item_friend_name);
                 mButton = (Button) view.findViewById(R.id.button_list_item_friend);
                 mButton.setOnClickListener(this);
-                mButton.setText(R.string.button_text_follow);
+                mButton.setText(R.string.button_text_loading);
+                mButton.setClickable(false);
             }
 
             @Override
@@ -222,18 +235,34 @@ public class FindFriendsFragment extends Fragment implements FollowingListener {
                 final Friend friend = mFacebookFriendsPresenter.get(mFacebookFriendsPresenter.indexOf(mUnfollowedFriends.get(getAdapterPosition())));
                 if (mButton.getText().equals(getString(R.string.button_text_follow))) {
                     mButton.setText(R.string.button_text_following);
-                    DatabaseHelper.followFriend(friend, new DatabaseHelper.FollowFriendListener() {
+                    mButton.setClickable(false);
+                    mFacebookFriendsPresenter.followFriend(friend, new FacebookFriendsPresenter.FollowFriendListener() {
                         @Override
                         public void onRequested() {
                             mButton.setText(R.string.button_text_cancel_request);
+                            mButton.setClickable(true);
+                        }
+
+                        @Override
+                        public void onFailed() {
+                            mButton.setText(R.string.button_text_follow);
+                            mButton.setClickable(true);
                         }
                     });
                 } else if (mButton.getText().equals(getString(R.string.button_text_cancel_request))) {
                     mButton.setText(R.string.button_text_cancelling);
-                    DatabaseHelper.cancelRequest(friend, new DatabaseHelper.CancelRequestListener() {
+                    mButton.setClickable(false);
+                    mFacebookFriendsPresenter.cancelRequest(friend, new FacebookFriendsPresenter.CancelRequestListener() {
                         @Override
-                        public void onCancelled() {
+                        public void onRequestCancelled() {
                             mButton.setText(R.string.button_text_follow);
+                            mButton.setClickable(true);
+                        }
+
+                        @Override
+                        public void onFailed() {
+                            mButton.setText(R.string.button_text_cancel_request);
+                            mButton.setClickable(true);
                         }
                     });
                 }

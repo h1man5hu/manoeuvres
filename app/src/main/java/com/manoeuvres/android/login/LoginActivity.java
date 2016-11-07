@@ -30,7 +30,6 @@ import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 import com.manoeuvres.android.R;
-import com.manoeuvres.android.database.DatabaseHelper;
 import com.manoeuvres.android.network.NetworkMonitor;
 import com.manoeuvres.android.network.NetworkMonitor.NetworkListener;
 import com.manoeuvres.android.util.Constants;
@@ -67,6 +66,7 @@ public class LoginActivity extends AppCompatActivity implements NetworkListener 
 
     private boolean mIsAuthenticating;
 
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -75,6 +75,7 @@ public class LoginActivity extends AppCompatActivity implements NetworkListener 
         FacebookSdk.sdkInitialize(getApplicationContext());
 
         setContentView(R.layout.activity_login);
+
 
         mAuth = FirebaseAuth.getInstance();
         mAuthListener = new FirebaseAuth.AuthStateListener() {
@@ -100,11 +101,16 @@ public class LoginActivity extends AppCompatActivity implements NetworkListener 
                                 startActivity(MainActivity.class);
                             } else {
                                 mLoadingTextView.setText(R.string.loading_login_creating_account);
-                                DatabaseHelper.registerUser(mFacebookUserId, mName, getResources(), new DatabaseHelper.RegisterUserListener() {
+                                AuthPresenter.registerUser(mFacebookUserId, mName, getResources(), new AuthPresenter.RegisterUserListener() {
                                     @Override
                                     public void onRegistered() {
                                         mLoadingTextView.setText(R.string.loading_login_account_created);
                                         startActivity(MainActivity.class);
+                                    }
+
+                                    @Override
+                                    public void onFailed() {
+
                                     }
                                 });
                             }
