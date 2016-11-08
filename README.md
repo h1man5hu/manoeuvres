@@ -39,7 +39,7 @@ The app follows the <i>Model-View-Presenter</i> (MVP) architecture. The classes 
 * Each presenter also has a <i>DatabaseHelper</i> class which contains only static methods. The presenter delegates one-time reading/writing operations to these database helpers. 
 
 ###Getting data about friends
-![FriendsPresenter](http://i.imgur.com/uW0KHiO.png)
+![FriendsPresenter](http://i.imgur.com/SrCQYpS.png)
 
 ###Getting data about friends' moves
 ![TimelinePresenter](http://i.imgur.com/0cPzie7.png)
