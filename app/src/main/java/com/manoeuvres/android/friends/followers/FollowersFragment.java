@@ -4,6 +4,7 @@ package com.manoeuvres.android.friends.followers;
 import android.app.Activity;
 import android.content.Context;
 import android.os.Bundle;
+import android.preference.PreferenceManager;
 import android.support.design.widget.NavigationView;
 import android.support.v4.app.Fragment;
 import android.support.v7.widget.LinearLayoutManager;
@@ -87,6 +88,7 @@ public class FollowersFragment extends Fragment implements FollowersListener {
 
         mFacebookFriendsPresenter = FacebookFriendsPresenter
                 .getInstance(mMainActivity.getApplicationContext())
+                .loadCache(PreferenceManager.getDefaultSharedPreferences(mMainActivity.getApplicationContext()))
                 .sync();
 
         mFollowersPresenter = FollowersPresenter.getInstance()

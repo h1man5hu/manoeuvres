@@ -4,6 +4,7 @@ package com.manoeuvres.android.friends.findfriends;
 import android.app.Activity;
 import android.content.Context;
 import android.os.Bundle;
+import android.preference.PreferenceManager;
 import android.support.design.widget.NavigationView;
 import android.support.v4.app.Fragment;
 import android.support.v7.widget.LinearLayoutManager;
@@ -92,6 +93,7 @@ public class FindFriendsFragment extends Fragment implements FollowingListener {
         mNavigationMenu.findItem(R.id.nav_find_friends).setChecked(true);
 
         mFacebookFriendsPresenter = FacebookFriendsPresenter.getInstance(mMainActivity.getApplicationContext())
+                .loadCache(PreferenceManager.getDefaultSharedPreferences(mMainActivity.getApplicationContext()))
                 .sync();
 
         mFollowingPresenter = FollowingPresenter.getInstance(mMainActivity.getApplicationContext())

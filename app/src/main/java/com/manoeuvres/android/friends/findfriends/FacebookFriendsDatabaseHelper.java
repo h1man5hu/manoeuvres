@@ -16,11 +16,15 @@ import com.manoeuvres.android.friends.requests.RequestsDatabaseHelper;
 import com.manoeuvres.android.login.AuthPresenter;
 import com.manoeuvres.android.util.Constants;
 
+import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
+
+import java.util.List;
 
 class FacebookFriendsDatabaseHelper {
 
-    static void updateFacebookFriends(final FacebookFriendsPresenter.GraphRequestListener listener) {
+    private static void getFacebookFriendsJSON(final FacebookFriendsPresenter.GraphRequestListener listener) {
         GraphRequest request = GraphRequest.newMeRequest(
                 AccessToken.getCurrentAccessToken(),
                 new GraphRequest.GraphJSONObjectCallback() {
@@ -36,7 +40,61 @@ class FacebookFriendsDatabaseHelper {
         request.executeAsync();
     }
 
-    static void getFirebaseId(Long facebookId, final FacebookFriendsPresenter.FirebaseIdListener listener) {
+    static void processFacebookFriendsJSON(final List<Friend> friends, JSONArray array, final FacebookFriendsPresenter.FriendListUpdateListener listener) {
+        final int numberOfFriends = array.length();
+        for (int i = 0; i < numberOfFriends; i++) {
+            JSONObject friendJSONObject;
+            final Friend friend;
+            try {
+                friendJSONObject = array.getJSONObject(i);
+                friend = new Friend(
+                        friendJSONObject.getLong(Constants.FACEBOOK_FIELD_GRAPH_REQUEST_ID),
+                        friendJSONObject.getString(Constants.FACEBOOK_FIELD_GRAPH_REQUEST_NAME));
+                FacebookFriendsDatabaseHelper.getFirebaseId(friend.getFacebookId(), new FacebookFriendsPresenter.FirebaseIdListener() {
+                    @Override
+                    public void onLoaded(String firebaseId) {
+                        friend.setFirebaseId(firebaseId);
+                        int index = friends.indexOf(friend);
+                        if (index != -1) {
+                            friends.remove(index);
+                            friends.add(index, friend);
+                        } else friends.add(friend);
+
+                        if (friends.size() == numberOfFriends) {
+                            listener.onUpdated(friends);
+                        }
+                    }
+
+                    @Override
+                    public void onFailed() {
+
+                    }
+                });
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    static void updateFriends(final List<Friend> friends, final FacebookFriendsPresenter.FriendListUpdateListener listener) {
+        getFacebookFriendsJSON(new FacebookFriendsPresenter.GraphRequestListener() {
+            @Override
+            public void onRequestComplete(JSONObject object, GraphResponse response) {
+                JSONArray friendsJSONArray;
+                try {
+                    if (object != null) {
+                        friendsJSONArray = object.getJSONObject(Constants.FACEBOOK_FIELD_GRAPH_REQUEST_FRIENDS)
+                                .getJSONArray(Constants.FACEBOOK_FIELD_GRAPH_REQUEST_DATA);
+                        processFacebookFriendsJSON(friends, friendsJSONArray, listener);
+                    }
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+            }
+        });
+    }
+
+    private static void getFirebaseId(Long facebookId, final FacebookFriendsPresenter.FirebaseIdListener listener) {
         FirebaseDatabase database = FirebaseDatabase.getInstance();
         database.getReference(Constants.FIREBASE_DATABASE_REFERENCE_USERS)
                 .orderByChild(Constants.FIREBASE_DATABASE_REFERENCE_USERS_FACEBOOK_ID).

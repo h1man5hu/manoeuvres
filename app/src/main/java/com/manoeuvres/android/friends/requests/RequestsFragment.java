@@ -5,6 +5,7 @@ import android.app.Activity;
 import android.app.NotificationManager;
 import android.content.Context;
 import android.os.Bundle;
+import android.preference.PreferenceManager;
 import android.support.design.widget.NavigationView;
 import android.support.v4.app.Fragment;
 import android.support.v7.widget.LinearLayoutManager;
@@ -93,6 +94,7 @@ public class RequestsFragment extends Fragment implements RequestsListener {
         mNavigationMenu.findItem(R.id.nav_requests).setChecked(true);
 
         mFacebookFriendsPresenter = FacebookFriendsPresenter.getInstance(mMainActivity.getApplicationContext())
+                .loadCache(PreferenceManager.getDefaultSharedPreferences(mMainActivity.getApplicationContext()))
                 .sync();
 
         mRequestsPresenter = RequestsPresenter.getInstance()

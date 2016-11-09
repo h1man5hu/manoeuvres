@@ -67,7 +67,9 @@ public class NotificationService extends Service implements RequestsListener, Fo
 
             mSeenRequestsPresenter = SeenRequestsPresenter.getInstance().sync();
             mSeenFollowingPresenter = SeenFollowingPresenter.getInstance().sync();
-            mFacebookFriendsPresenter = FacebookFriendsPresenter.getInstance(getApplicationContext()).sync();
+            mFacebookFriendsPresenter = FacebookFriendsPresenter.getInstance(getApplicationContext())
+                    .loadCache(PreferenceManager.getDefaultSharedPreferences(getApplicationContext()))
+                    .sync();
             mFollowingPresenter = FollowingPresenter.getInstance(getApplicationContext()).attach(this).sync();
             mMovesPresenter = MovesPresenter.getInstance(getApplicationContext());
             mLatestLogPresenter = LatestLogPresenter.getInstance(getApplicationContext());
@@ -254,5 +256,11 @@ public class NotificationService extends Service implements RequestsListener, Fo
     @Override
     public IBinder onBind(Intent intent) {
         return null;
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        mFacebookFriendsPresenter.saveCache(PreferenceManager.getDefaultSharedPreferences(getApplicationContext()));
     }
 }
