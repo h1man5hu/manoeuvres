@@ -155,7 +155,7 @@ public class FollowingPresenter implements FriendsPresenter {
                                                     final String firebaseId = dataSnapshot.getValue().toString();
 
                                                     /* Get the details of the added friend from the users reference using the firebase id. */
-                                                    AuthPresenter.getUserProfile(userId, new AuthPresenter.UserProfileListener() {
+                                                    AuthPresenter.getUserProfile(firebaseId, new AuthPresenter.UserProfileListener() {
                                                         @Override
                                                         public void onProfileLoaded(Friend friend) {
                                                             friend.setFirebaseId(firebaseId);
