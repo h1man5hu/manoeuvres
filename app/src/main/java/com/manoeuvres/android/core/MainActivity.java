@@ -170,6 +170,8 @@ public class MainActivity extends AppCompatActivity
                 Friend removedFriend = removedFollowing.get(i);
                 onFollowingRemoved(0, removedFriend);
             }
+
+        onNewIntent(getIntent());
     }
 
     @Override
@@ -377,15 +379,17 @@ public class MainActivity extends AppCompatActivity
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         Bundle bundle = intent.getExtras();
-        String notificationType = bundle.getString(Constants.KEY_EXTRA_NOTIFICATION_SERVICE);
-        if (notificationType != null) {
-            DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
-            if (drawer != null && drawer.isDrawerOpen(GravityCompat.START))
-                drawer.closeDrawer(GravityCompat.START);
-            if (notificationType.equals(Constants.NOTIFICATION_TYPE_REQUEST))
-                startFriendsFragment(Constants.FRAGMENT_REQUESTS, R.id.nav_requests);
-            else if (notificationType.equals(Constants.NOTIFICATION_TYPE_FOLLOWING) || (notificationType.equals(Constants.NOTIFICATION_TYPE_LOG)))
-                startTimelineFragment(true, UniqueId.getMenuId(new Friend(bundle.getString(Constants.KEY_EXTRA_FRAGMENT_TIMELINE_FRIEND_ID))));
+        if (bundle != null) {
+            String notificationType = bundle.getString(Constants.KEY_EXTRA_NOTIFICATION_SERVICE, null);
+            if (notificationType != null) {
+                DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
+                if (drawer != null && drawer.isDrawerOpen(GravityCompat.START))
+                    drawer.closeDrawer(GravityCompat.START);
+                if (notificationType.equals(Constants.NOTIFICATION_TYPE_REQUEST))
+                    startFriendsFragment(Constants.FRAGMENT_REQUESTS, R.id.nav_requests);
+                else if (notificationType.equals(Constants.NOTIFICATION_TYPE_FOLLOWING) || (notificationType.equals(Constants.NOTIFICATION_TYPE_LOG)))
+                    startTimelineFragment(true, UniqueId.getMenuId(new Friend(bundle.getString(Constants.KEY_EXTRA_FRAGMENT_TIMELINE_FRIEND_ID))));
+            }
         }
     }
 
