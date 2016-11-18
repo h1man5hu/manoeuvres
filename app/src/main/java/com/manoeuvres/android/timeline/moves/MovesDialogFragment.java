@@ -16,8 +16,14 @@ import com.google.firebase.auth.FirebaseUser;
 import com.manoeuvres.android.R;
 import com.manoeuvres.android.views.DividerItemDecoration;
 
+import butterknife.BindView;
+import butterknife.ButterKnife;
+import butterknife.OnClick;
+
 public class MovesDialogFragment extends DialogFragment {
 
+    @BindView(R.id.recycler_view_moves)
+    RecyclerView mRecyclerView;
     private DividerItemDecoration mItemDecoration;
     private MovesPresenter mMovesPresenter;
     private String mUserId;
@@ -42,13 +48,13 @@ public class MovesDialogFragment extends DialogFragment {
                              @Nullable ViewGroup container,
                              @Nullable Bundle savedInstanceState) {
         View rootView = inflater.inflate(R.layout.fragment_dialog_moves, container, false);
+        ButterKnife.bind(this, rootView);
 
-        RecyclerView recyclerView = (RecyclerView) rootView.findViewById(R.id.recycler_view_moves);
         RecyclerView.LayoutManager layoutManager = new LinearLayoutManager(getContext());
-        recyclerView.setLayoutManager(layoutManager);
+        mRecyclerView.setLayoutManager(layoutManager);
         MovesAdapter adapter = new MovesAdapter();
-        recyclerView.setAdapter(adapter);
-        recyclerView.addItemDecoration(mItemDecoration);
+        mRecyclerView.setAdapter(adapter);
+        mRecyclerView.addItemDecoration(mItemDecoration);
 
         return rootView;
     }
@@ -61,7 +67,6 @@ public class MovesDialogFragment extends DialogFragment {
     }
 
     public class MovesAdapter extends RecyclerView.Adapter<MovesAdapter.ViewHolder> {
-
 
         @Override
         public ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
@@ -84,22 +89,22 @@ public class MovesDialogFragment extends DialogFragment {
 
         class ViewHolder extends RecyclerView.ViewHolder {
 
+            @BindView(R.id.title_move_dialog_fragment)
             TextView mTitleTextView;
 
             ViewHolder(View itemView) {
                 super(itemView);
-                mTitleTextView = (TextView) itemView.findViewById(R.id.title_move_dialog_fragment);
-                itemView.setOnClickListener(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v) {
-                        Move move = (Move) moves[getAdapterPosition()];
-                        String moveId = mMovesPresenter.getKey(mUserId, move);
-                        if (moveId != null) {
-                            mMovesPresenter.pushMove(moveId);
-                            dismiss();
-                        }
-                    }
-                });
+                ButterKnife.bind(this, itemView);
+            }
+
+            @OnClick
+            void onRowClicked() {
+                Move move = (Move) moves[getAdapterPosition()];
+                String moveId = mMovesPresenter.getKey(mUserId, move);
+                if (moveId != null) {
+                    mMovesPresenter.pushMove(moveId);
+                    dismiss();
+                }
             }
         }
     }

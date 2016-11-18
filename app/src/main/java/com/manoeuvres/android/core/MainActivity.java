@@ -20,7 +20,6 @@ import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.support.design.widget.NavigationView;
 import android.support.design.widget.FloatingActionButton;
-import android.widget.ImageView;
 import android.widget.TextView;
 
 import com.facebook.FacebookSdk;
@@ -48,15 +47,25 @@ import com.manoeuvres.android.util.UniqueId;
 
 import java.util.List;
 
+import butterknife.BindView;
+import butterknife.ButterKnife;
+import butterknife.OnClick;
+
 public class MainActivity extends AppCompatActivity implements
         FollowingPresenter.FollowingListener, LatestLogPresenter.LatestLogListener,
         NetworkMonitor.NetworkListener, NavigationView.OnNavigationItemSelectedListener {
 
+    @BindView(R.id.fab)
+    FloatingActionButton mFab;
+    @BindView(R.id.drawer_layout)
+    DrawerLayout mDrawerLayout;
+    @BindView(R.id.toolbar)
+    Toolbar mToolbar;
+    @BindView(R.id.nav_view)
+    NavigationView mNavigationView;
     private FollowingPresenter mFollowingPresenter;
     private LatestLogPresenter mLatestLogPresenter;
     private NetworkMonitor mNetworkMonitor;
-    private FloatingActionButton mFab;
-    private DrawerLayout mDrawerLayout;
     private NavigationMenu mNavigationMenu;
     private FirebaseUser mUser;
     private SharedPreferences mSharedPreferences;
@@ -86,39 +95,30 @@ public class MainActivity extends AppCompatActivity implements
     }
 
     private void initializeViews() {
-        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
-        setSupportActionBar(toolbar);
+        ButterKnife.bind(this);
 
-        mFab = (FloatingActionButton) findViewById(R.id.fab);
-        mFab.setOnClickListener(new FabClickListener());
+        setSupportActionBar(mToolbar);
+
         mFab.hide();
 
-        mDrawerLayout = (DrawerLayout) findViewById(R.id.drawer_layout);
-
         ActionBarDrawerToggle toggle = new ActionBarDrawerToggle(
-                this, mDrawerLayout, toolbar,
+                this, mDrawerLayout, mToolbar,
                 R.string.navigation_drawer_open,
                 R.string.navigation_drawer_close
         );
         mDrawerLayout.addDrawerListener(toggle);
         toggle.syncState();
 
-        NavigationView navigationView = (NavigationView) findViewById(R.id.nav_view);
-        navigationView.setNavigationItemSelectedListener(this);
-
-        mNavigationMenu = (NavigationMenu) navigationView.getMenu();
+        mNavigationView.setNavigationItemSelectedListener(this);
+        mNavigationMenu = (NavigationMenu) mNavigationView.getMenu();
         /* Set user's timeline as default position. */
         mNavigationMenu.findItem(R.id.nav_timeline).setChecked(true);
 
-        View navigationHeaderView = navigationView.getHeaderView(0);
-        TextView name = (TextView) navigationHeaderView.findViewById(
-                R.id.navigation_header_textview_name
+        View navigationHeaderView = mNavigationView.getHeaderView(0);
+        TextView name = ButterKnife.findById(
+                navigationHeaderView, R.id.navigation_header_textview_name
         );
         name.setText(mUser.getDisplayName());
-        ImageView profilePicture = (ImageView) navigationHeaderView.findViewById(
-                R.id.navigation_header_imageview_profile_picture
-        );
-        profilePicture.setVisibility(View.INVISIBLE);
     }
 
     private void updateFab(boolean moveInProgress) {
@@ -277,15 +277,35 @@ public class MainActivity extends AppCompatActivity implements
         });
     }
 
+    @OnClick(R.id.fab)
+    void onFabClick() {
+        Fragment currentFragment = mFragmentManager.findFragmentById(R.id.content_main);
+        if (currentFragment instanceof TimelineFragment) {
+            if (!mLatestLogPresenter.isInProgress(mUser.getUid())) {
+                FragmentTransaction transaction = mFragmentManager.beginTransaction();
+                Fragment fragment = mFragmentManager.findFragmentByTag(
+                        Constants.TAG_DIALOG_FRAGMENT_MOVES
+                );
+                if (fragment != null) {
+                    transaction.remove(fragment);
+                }
+                transaction.addToBackStack(null);
+                MovesDialogFragment dialogFragment = new MovesDialogFragment();
+                dialogFragment.show(transaction, Constants.TAG_DIALOG_FRAGMENT_MOVES);
+            } else {
+                mLatestLogPresenter.stopLatestMove();
+            }
+        }
+    }
+
     /*
      * Close the drawer if it's open.
      * Pop all the fragment transactions if pressed from a fragment other than timeline fragment.
      */
     @Override
     public void onBackPressed() {
-        DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
-        if (drawer.isDrawerOpen(GravityCompat.START)) {
-            drawer.closeDrawer(GravityCompat.START);
+        if (mDrawerLayout.isDrawerOpen(GravityCompat.START)) {
+            mDrawerLayout.closeDrawer(GravityCompat.START);
         } else if (mFragmentManager.getBackStackEntryCount() > 0) {
             /* The back button should always take the user to the timeline. */
             mFragmentManager.popBackStack(null, FragmentManager.POP_BACK_STACK_INCLUSIVE);
@@ -437,9 +457,8 @@ public class MainActivity extends AppCompatActivity implements
                     Constants.KEY_EXTRA_NOTIFICATION_SERVICE, null
             );
             if (notificationType != null) {
-                DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
-                if (drawer != null && drawer.isDrawerOpen(GravityCompat.START)) {
-                    drawer.closeDrawer(GravityCompat.START);
+                if (mDrawerLayout != null && mDrawerLayout.isDrawerOpen(GravityCompat.START)) {
+                    mDrawerLayout.closeDrawer(GravityCompat.START);
                 }
                 if (notificationType.equals(Constants.NOTIFICATION_TYPE_REQUEST)) {
                     startFriendsFragment(Constants.FRAGMENT_REQUESTS, R.id.nav_requests);
@@ -454,6 +473,10 @@ public class MainActivity extends AppCompatActivity implements
                 }
             }
         }
+    }
+
+    public FloatingActionButton getFab() {
+        return mFab;
     }
 
     @Override
@@ -475,32 +498,5 @@ public class MainActivity extends AppCompatActivity implements
         mNetworkMonitor.detach(this);
         mLatestLogPresenter.detach(this, mUser.getUid());
         mFollowingPresenter = (FollowingPresenter) mFollowingPresenter.detach(this);
-    }
-
-    class FabClickListener implements View.OnClickListener {
-
-        /* Used to confirm if the mFab was clicked from the user's timeline or not. */
-        private Fragment mCurrentFragment;
-
-        @Override
-        public void onClick(View view) {
-            mCurrentFragment = mFragmentManager.findFragmentById(R.id.content_main);
-            if (mCurrentFragment instanceof TimelineFragment) {
-                if (!mLatestLogPresenter.isInProgress(mUser.getUid())) {
-                    FragmentTransaction transaction = mFragmentManager.beginTransaction();
-                    Fragment fragment = mFragmentManager.findFragmentByTag(
-                            Constants.TAG_DIALOG_FRAGMENT_MOVES
-                    );
-                    if (fragment != null) {
-                        transaction.remove(fragment);
-                    }
-                    transaction.addToBackStack(null);
-                    MovesDialogFragment dialogFragment = new MovesDialogFragment();
-                    dialogFragment.show(transaction, Constants.TAG_DIALOG_FRAGMENT_MOVES);
-                } else {
-                    mLatestLogPresenter.stopLatestMove();
-                }
-            }
-        }
     }
 }

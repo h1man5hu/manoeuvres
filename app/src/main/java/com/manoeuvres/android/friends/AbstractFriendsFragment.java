@@ -22,15 +22,22 @@ import com.manoeuvres.android.database.CompletionListeners;
 import com.manoeuvres.android.friends.findfriends.FacebookFriendsPresenter;
 import com.manoeuvres.android.views.DividerItemDecoration;
 
+import butterknife.BindView;
+import butterknife.ButterKnife;
+import butterknife.OnClick;
+
 import static android.content.Context.NOTIFICATION_SERVICE;
 
 public abstract class AbstractFriendsFragment extends Fragment {
 
+    @BindView(R.id.recycler_view_friends)
+    RecyclerView mRecyclerView;
+    @BindView(R.id.progress_bar_friends)
+    ProgressBar mProgressBar;
+    @BindView(R.id.textView_background_friends)
+    TextView mBackgroundTextView;
     private MainActivity mParentActivity;
-    private RecyclerView mRecyclerView;
     private RecyclerView.Adapter mAdapter;
-    private ProgressBar mProgressBar;
-    private TextView mBackgroundTextView;
     private NotificationManager mNotificationManager;
     private Menu mNavigationMenu;
     private FacebookFriendsPresenter mFacebookFriendsPresenter;
@@ -56,8 +63,8 @@ public abstract class AbstractFriendsFragment extends Fragment {
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
         View rootView = inflater.inflate(R.layout.fragment_friends, container, false);
+        ButterKnife.bind(this, rootView);
 
-        mRecyclerView = (RecyclerView) rootView.findViewById(R.id.recycler_view_friends);
         mRecyclerView.setHasFixedSize(true);
         RecyclerView.LayoutManager layoutManager = new LinearLayoutManager(getContext());
         mRecyclerView.setLayoutManager(layoutManager);
@@ -65,12 +72,8 @@ public abstract class AbstractFriendsFragment extends Fragment {
         mRecyclerView.setAdapter(mAdapter);
         mRecyclerView.addItemDecoration(new DividerItemDecoration(mParentActivity));
 
-        NavigationView navigationView =
-                (NavigationView) mParentActivity.findViewById(R.id.nav_view);
+        NavigationView navigationView = ButterKnife.findById(mParentActivity, R.id.nav_view);
         mNavigationMenu = navigationView.getMenu();
-
-        mProgressBar = (ProgressBar) rootView.findViewById(R.id.progress_bar_friends);
-        mBackgroundTextView = (TextView) rootView.findViewById(R.id.textView_background_friends);
 
         return rootView;
     }
@@ -181,20 +184,20 @@ public abstract class AbstractFriendsFragment extends Fragment {
             return getFriendsCount();
         }
 
-        public class RecyclerViewHolder extends ViewHolder implements View.OnClickListener {
+        public class RecyclerViewHolder extends ViewHolder {
+            @BindView(R.id.button_list_item_friend)
             public Button mButton;
+            @BindView(R.id.textView_list_item_friend_name)
             TextView mFriendName;
 
             RecyclerViewHolder(View view) {
                 super(view);
-                mFriendName = (TextView) view.findViewById(R.id.textView_list_item_friend_name);
-                mButton = (Button) view.findViewById(R.id.button_list_item_friend);
-                mButton.setOnClickListener(this);
+                ButterKnife.bind(this, view);
                 initializeButton(mButton);
             }
 
-            @Override
-            public void onClick(View v) {
+            @OnClick(R.id.button_list_item_friend)
+            void onClick() {
                 AbstractFriendsFragment.this.onClick(mButton, getAdapterPosition());
             }
         }

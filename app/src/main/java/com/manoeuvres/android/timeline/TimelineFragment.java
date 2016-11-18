@@ -39,19 +39,25 @@ import com.manoeuvres.android.util.TextHelper;
 import com.manoeuvres.android.util.UniqueId;
 import com.manoeuvres.android.views.DividerItemDecoration;
 
+import butterknife.BindView;
+import butterknife.ButterKnife;
+
 public class TimelineFragment extends Fragment implements MovesListener, LogsListener, NetworkListener {
 
+    @BindView(R.id.recycler_view_timeline)
+    RecyclerView mRecyclerView;
+    @BindView(R.id.progress_bar_timeline)
+    ProgressBar mProgressBar;
+    @BindView(R.id.textView_background_logs)
+    TextView mBackgroundTextView;
     private MovesPresenter mMovesPresenter;
     private LogsPresenter mLogsPresenter;
     private NetworkMonitor mNetworkMonitor;
-    private RecyclerView mRecyclerView;
     private RecyclerView.Adapter mAdapter;
     private SharedPreferences mSharedPreferences;
-    private MainActivity mMainActivity;
+    private MainActivity mParentActivity;
     private FloatingActionButton mFab;
     private NavigationMenu mNavigationMenu;
-    private ProgressBar mProgressBar;
-    private TextView mBackgroundTextView;
     private boolean mIsFriend;
     private Snackbar mNoConnectionSnackbar;
     private NotificationManager mNotificationManager;
@@ -78,12 +84,12 @@ public class TimelineFragment extends Fragment implements MovesListener, LogsLis
     public void onAttach(Context context) {
         super.onAttach(context);
 
-        mMainActivity = (MainActivity) context;
+        mParentActivity = (MainActivity) context;
         mSharedPreferences = PreferenceManager.getDefaultSharedPreferences(
-                mMainActivity.getApplicationContext()
+                mParentActivity.getApplicationContext()
         );
 
-        mNotificationManager = (NotificationManager) mMainActivity.getSystemService(
+        mNotificationManager = (NotificationManager) mParentActivity.getSystemService(
                 Context.NOTIFICATION_SERVICE
         );
     }
@@ -118,21 +124,18 @@ public class TimelineFragment extends Fragment implements MovesListener, LogsLis
                              Bundle savedInstanceState) {
 
         View rootView = inflater.inflate(R.layout.fragment_timeline, container, false);
+        ButterKnife.bind(this, rootView);
 
-        mRecyclerView = (RecyclerView) rootView.findViewById(R.id.recycler_view_timeline);
         mRecyclerView.setHasFixedSize(true);
         RecyclerView.LayoutManager layoutManager = new LinearLayoutManager(getContext());
         mRecyclerView.setLayoutManager(layoutManager);
         mAdapter = new TimelineAdapter();
         mRecyclerView.setAdapter(mAdapter);
-        mRecyclerView.addItemDecoration(new DividerItemDecoration(mMainActivity));
+        mRecyclerView.addItemDecoration(new DividerItemDecoration(mParentActivity));
 
-        mFab = (FloatingActionButton) mMainActivity.findViewById(R.id.fab);
+        mFab = mParentActivity.getFab();
 
-        mProgressBar = (ProgressBar) rootView.findViewById(R.id.progress_bar_timeline);
-        mBackgroundTextView = (TextView) rootView.findViewById(R.id.textView_background_logs);
-
-        NavigationView navigationView = (NavigationView) mMainActivity.findViewById(R.id.nav_view);
+        NavigationView navigationView = ButterKnife.findById(mParentActivity, R.id.nav_view);
         mNavigationMenu = (NavigationMenu) navigationView.getMenu();
 
         return rootView;
@@ -142,7 +145,7 @@ public class TimelineFragment extends Fragment implements MovesListener, LogsLis
     public void onStart() {
         super.onStart();
 
-        mMainActivity.setTitle(mCurrentUserName);
+        mParentActivity.setTitle(mCurrentUserName);
         MenuItem menuItem;
         if (!mIsFriend) {
             menuItem = mNavigationMenu.findItem(R.id.nav_timeline);
@@ -154,11 +157,11 @@ public class TimelineFragment extends Fragment implements MovesListener, LogsLis
             menuItem.setChecked(true);
         }
 
-        mLogsPresenter = LogsPresenter.getInstance(mMainActivity.getApplicationContext());
+        mLogsPresenter = LogsPresenter.getInstance(mParentActivity.getApplicationContext());
         mLogsPresenter.addFriend(mCurrentUserId);
         mLogsPresenter.attach(this, mCurrentUserId);
 
-        mMovesPresenter = MovesPresenter.getInstance(mMainActivity.getApplicationContext());
+        mMovesPresenter = MovesPresenter.getInstance(mParentActivity.getApplicationContext());
         mMovesPresenter.addFriend(mCurrentUserId);
         mMovesPresenter.attach(this, mCurrentUserId);
         mMovesPresenter.sync(mCurrentUserId);
@@ -171,7 +174,7 @@ public class TimelineFragment extends Fragment implements MovesListener, LogsLis
             mAdapter.notifyDataSetChanged();
         }
 
-        mNetworkMonitor = NetworkMonitor.getInstance(mMainActivity.getApplicationContext())
+        mNetworkMonitor = NetworkMonitor.getInstance(mParentActivity.getApplicationContext())
                 .attach(this);
         if (mNetworkMonitor.isNetworkConnected()) {
             onNetworkConnected();
@@ -322,7 +325,7 @@ public class TimelineFragment extends Fragment implements MovesListener, LogsLis
         super.onStop();
 
         /* Update the cache of logs and moves for this user. */
-        if (!mMainActivity.isFinishing()) {
+        if (!mParentActivity.isFinishing()) {
             Gson gson = new Gson();
             mSharedPreferences.edit()
                     .putString(
@@ -388,13 +391,14 @@ public class TimelineFragment extends Fragment implements MovesListener, LogsLis
 
 
         class ViewHolder extends RecyclerView.ViewHolder {
+            @BindView(R.id.move_text)
             TextView mMoveTitle;
+            @BindView(R.id.move_subtext)
             TextView mMoveSubtitle;
 
             ViewHolder(View view) {
                 super(view);
-                mMoveTitle = (TextView) view.findViewById(R.id.move_text);
-                mMoveSubtitle = (TextView) view.findViewById(R.id.move_subtext);
+                ButterKnife.bind(this, view);
             }
         }
     }
