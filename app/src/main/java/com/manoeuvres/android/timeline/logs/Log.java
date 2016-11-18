@@ -2,6 +2,7 @@ package com.manoeuvres.android.timeline.logs;
 
 //Represents an actual instance of move.
 public class Log {
+
     private String mMoveId;
     private long mStartTime;
     private long mEndTime;

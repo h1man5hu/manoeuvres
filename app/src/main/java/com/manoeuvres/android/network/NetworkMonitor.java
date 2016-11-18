@@ -1,11 +1,11 @@
 package com.manoeuvres.android.network;
 
-
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.net.ConnectivityManager;
+import android.net.ConnectivityManager.NetworkCallback;
 import android.net.Network;
 import android.net.NetworkRequest;
 import android.os.Build;
@@ -16,7 +16,6 @@ import java.io.IOException;
 
 import static android.content.Context.CONNECTIVITY_SERVICE;
 import static android.net.ConnectivityManager.CONNECTIVITY_ACTION;
-
 
 public class NetworkMonitor {
 
@@ -32,14 +31,18 @@ public class NetworkMonitor {
          * Falls back to receiving broadcasts otherwise.
          */
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            ConnectivityManager connectivityManager = (ConnectivityManager) applicationContext.getSystemService(CONNECTIVITY_SERVICE);
-            ConnectivityManager.NetworkCallback callback = new ConnectivityManager.NetworkCallback() {
+            ConnectivityManager connectivityManager =
+                    (ConnectivityManager) applicationContext.getSystemService(CONNECTIVITY_SERVICE);
+            NetworkCallback callback = new ConnectivityManager.NetworkCallback() {
                 @Override
                 public void onAvailable(Network network) {
                     super.onAvailable(network);
 
-                    if (isNetworkConnected()) notifyObservers(Constants.CALLBACK_NETWORK_CONNECTED);
-                    else notifyObservers(Constants.CALLBACK_NETWORK_DISCONNECTED);
+                    if (isNetworkConnected()) {
+                        notifyObservers(Constants.CALLBACK_NETWORK_CONNECTED);
+                    } else {
+                        notifyObservers(Constants.CALLBACK_NETWORK_DISCONNECTED);
+                    }
                 }
 
                 @Override
@@ -49,15 +52,19 @@ public class NetworkMonitor {
                     notifyObservers(Constants.CALLBACK_NETWORK_DISCONNECTED);
                 }
             };
-            connectivityManager.registerNetworkCallback(new NetworkRequest.Builder().build(), callback);
+            connectivityManager.registerNetworkCallback(
+                    new NetworkRequest.Builder().build(), callback
+            );
         } else {
             BroadcastReceiver receiver = new BroadcastReceiver() {
                 @Override
                 public void onReceive(Context context, Intent intent) {
                     if (intent.getAction().equals(CONNECTIVITY_ACTION)) {
-                        if (isNetworkConnected())
+                        if (isNetworkConnected()) {
                             notifyObservers(Constants.CALLBACK_NETWORK_CONNECTED);
-                        else notifyObservers(Constants.CALLBACK_NETWORK_DISCONNECTED);
+                        } else {
+                            notifyObservers(Constants.CALLBACK_NETWORK_DISCONNECTED);
+                        }
                     }
                 }
             };
@@ -66,7 +73,9 @@ public class NetworkMonitor {
     }
 
     public static NetworkMonitor getInstance(Context applicationContext) {
-        if (ourInstance == null) ourInstance = new NetworkMonitor(applicationContext);
+        if (ourInstance == null) {
+            ourInstance = new NetworkMonitor(applicationContext);
+        }
         return ourInstance;
     }
 
@@ -74,7 +83,9 @@ public class NetworkMonitor {
         NetworkListener listener = (NetworkListener) component;
         for (int i = 0; i < mObservers.length; i++) {
             NetworkListener observer = mObservers[i];
-            if (observer != null && observer.equals(listener)) return ourInstance;
+            if (observer != null && observer.equals(listener)) {
+                return ourInstance;
+            }
         }
 
         for (int i = 0; i < mObservers.length; i++) {
@@ -122,6 +133,7 @@ public class NetworkMonitor {
                     case Constants.CALLBACK_NETWORK_DISCONNECTED:
                         observer.onNetworkDisconnected();
                         break;
+                    default:
                 }
             }
         }

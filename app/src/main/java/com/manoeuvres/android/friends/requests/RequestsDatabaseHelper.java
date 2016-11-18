@@ -1,6 +1,5 @@
 package com.manoeuvres.android.friends.requests;
 
-
 import android.support.annotation.NonNull;
 
 import com.google.firebase.database.DataSnapshot;
@@ -8,30 +7,20 @@ import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
+import com.manoeuvres.android.database.DatabaseHelper;
 import com.manoeuvres.android.friends.Friend;
+import com.manoeuvres.android.friends.FriendsDatabaseHelper;
 import com.manoeuvres.android.friends.followers.FollowersDatabaseHelper;
 import com.manoeuvres.android.friends.following.FollowingDatabaseHelper;
 import com.manoeuvres.android.login.AuthPresenter;
+import com.manoeuvres.android.database.CompletionListeners;
+import com.manoeuvres.android.database.CompletionListeners.GetBooleanListener;
+import com.manoeuvres.android.database.CompletionListeners.OnCompleteListener;
 import com.manoeuvres.android.util.Constants;
 
-import java.util.ArrayList;
 import java.util.List;
 
 public class RequestsDatabaseHelper {
-
-    /* To avoid notifications for already seen requests. */
-    static void pushSeenRequests(List<Friend> requests) {
-        String userId = AuthPresenter.getCurrentUserId();
-        if (userId == null) return;
-
-        List<String> requestIds = new ArrayList<>();
-        for (int i = 0; i < requests.size(); i++) {
-            Friend request = requests.get(i);
-            requestIds.add(request.getFirebaseId());
-        }
-
-        getSeenRequestsReference(userId).setValue(requestIds);
-    }
 
     /*
      * 1. Decrement by 1 the count of the number of requests the user has.
@@ -41,128 +30,147 @@ public class RequestsDatabaseHelper {
      * 5. Increment by 1 the count of the number of friends the friend is following.
      * 6. Add the Firebase Id of the user to the list of friends the friend is following.
      */
-    static void acceptRequest(final Friend friend) {
+    static void accept(final String friendId) {
         final String userId = AuthPresenter.getCurrentUserId();
-        if (userId == null) return;
+        if (userId == null) {
+            return;
+        }
 
-        final DatabaseReference userRequestsCountReference = getRequestsCountReference(userId);
-
-        userRequestsCountReference.addListenerForSingleValueEvent(new ValueEventListener() {
+        removeRequest(userId, friendId, new OnCompleteListener() {
             @Override
-            public void onDataChange(DataSnapshot dataSnapshot) {
-                Object value = dataSnapshot.getValue();
-                if (value != null) {
-                    int count = Integer.valueOf(value.toString());
-                    if (count > 0) userRequestsCountReference.setValue(count - 1);
-                    else userRequestsCountReference.setValue(0);
+            public void onComplete() {
 
-                    final DatabaseReference userRequestsReference = getRequestsDataReference(userId);
-                    userRequestsReference.addListenerForSingleValueEvent(new ValueEventListener() {
-                        @Override
-                        public void onDataChange(DataSnapshot dataSnapshot) {
-                            if (dataSnapshot.hasChildren())
-                                for (DataSnapshot snapshot : dataSnapshot.getChildren())
-                                    if (snapshot.getValue().equals(friend.getFirebaseId()))
-                                        userRequestsReference.child(snapshot.getKey()).setValue(null);
-                        }
-
-                        @Override
-                        public void onCancelled(DatabaseError databaseError) {
-
-                        }
-                    });
-                }
             }
 
             @Override
-            public void onCancelled(DatabaseError databaseError) {
+            public void onFailed() {
 
             }
         });
+        FollowersDatabaseHelper.addFollower(userId, friendId);
+        FollowingDatabaseHelper.addFollowing(friendId, userId);
+    }
 
-        final DatabaseReference userFollowersCountReference = FollowersDatabaseHelper.getFollowersCountReference(userId);
-        userFollowersCountReference.addListenerForSingleValueEvent(new ValueEventListener() {
+    /*
+     * 1. Increment by 1 the count of the number of requests the friend has.
+     * 2. Add the Firebase Id of the user to the list of the requests of the friend.
+     */
+    public static void sendRequest(String friendId, final OnCompleteListener listener) {
+        final String userId = AuthPresenter.getCurrentUserId();
+        if (userId == null) {
+            return;
+        }
+
+        addRequest(friendId, userId, listener);
+    }
+
+    /*
+     * 1. Decrement by 1 the count of the number of requests the friend has.
+     * 2. Remove the Firebase Id of the user from the list of the requests of the friend.
+     */
+    public static void cancelRequest(final String friendId, final OnCompleteListener listener) {
+        final String userId = AuthPresenter.getCurrentUserId();
+        if (userId == null) {
+            return;
+        }
+
+        removeRequest(friendId, userId, listener);
+    }
+
+    private static void addRequest(final String userId,
+                                   final String requestId,
+                                   final OnCompleteListener listener) {
+        final DatabaseReference countReference = getCountReference(userId);
+        final DatabaseReference dataReference = getDataReference(userId);
+        DatabaseHelper.getCount(countReference, new CompletionListeners.GetIntListener() {
             @Override
-            public void onDataChange(DataSnapshot dataSnapshot) {
-                int count = 0;
-                if (dataSnapshot.getValue() != null) {
-                    count = Integer.valueOf(dataSnapshot.getValue().toString());
-                }
-                userFollowersCountReference.setValue(count + 1);
-
-                final DatabaseReference userFollowersReference = FollowersDatabaseHelper.getFollowersDataReference(userId);
-                userFollowersReference.orderByKey().limitToLast(1).addListenerForSingleValueEvent(new ValueEventListener() {
-                    @Override
-                    public void onDataChange(DataSnapshot dataSnapshot) {
-                        String key = "0";
-                        if (dataSnapshot.getValue() != null) {
-                            key = String.valueOf(Integer.valueOf(dataSnapshot.getChildren().iterator().next().getKey()) + 1);
-                        }
-                        userFollowersReference.child(key).setValue(friend.getFirebaseId());
-                    }
-
-                    @Override
-                    public void onCancelled(DatabaseError databaseError) {
-
-                    }
-                });
+            public void onComplete(int count) {
+                DatabaseHelper.incrementCount(count, countReference);
+                DatabaseHelper.addListItem(requestId, dataReference, listener);
             }
 
             @Override
-            public void onCancelled(DatabaseError databaseError) {
-
-            }
-        });
-
-        final DatabaseReference friendFollowingCountReference = FollowingDatabaseHelper.getFollowingCountReference(friend.getFirebaseId());
-        friendFollowingCountReference.addListenerForSingleValueEvent(new ValueEventListener() {
-            @Override
-            public void onDataChange(DataSnapshot dataSnapshot) {
-                int count = 0;
-                if (dataSnapshot.getValue() != null) {
-                    count = Integer.valueOf(dataSnapshot.getValue().toString());
-                }
-                friendFollowingCountReference.setValue(count + 1);
-
-                final DatabaseReference friendFollowingReference = FollowingDatabaseHelper.getFollowingDataReference(friend.getFirebaseId());
-                friendFollowingReference.addListenerForSingleValueEvent(new ValueEventListener() {
-                    @Override
-                    public void onDataChange(DataSnapshot dataSnapshot) {
-                        if (dataSnapshot.getKey() != null) {
-                            friendFollowingReference.child(String.valueOf(dataSnapshot.getChildrenCount())).setValue(userId);
-                        }
-                    }
-
-                    @Override
-                    public void onCancelled(DatabaseError databaseError) {
-
-                    }
-                });
-            }
-
-            @Override
-            public void onCancelled(DatabaseError databaseError) {
-
+            public void onFailed() {
+                listener.onFailed();
             }
         });
     }
 
-    public static DatabaseReference getSeenRequestsReference(@NonNull String userId) {
-        return (FirebaseDatabase.getInstance().getReference(Constants.FIREBASE_DATABASE_REFERENCE_SEEN)
+    private static void removeRequest(final String userId,
+                                      final String requestId,
+                                      final OnCompleteListener listener) {
+        final DatabaseReference countReference = getCountReference(userId);
+        final DatabaseReference dataReference = getDataReference(userId);
+        DatabaseHelper.getCount(countReference, new CompletionListeners.GetIntListener() {
+            @Override
+            public void onComplete(int count) {
+                DatabaseHelper.decrementCount(count, countReference);
+                DatabaseHelper.removeListItem(requestId, dataReference, listener);
+            }
+
+            @Override
+            public void onFailed() {
+                listener.onFailed();
+            }
+        });
+    }
+
+    public static void isFriendRequested(final String friendId, final GetBooleanListener listener) {
+        final String userId = AuthPresenter.getCurrentUserId();
+        if (userId == null) {
+            return;
+        }
+
+        getDataReference(friendId).addListenerForSingleValueEvent(
+                new ValueEventListener() {
+                    @Override
+                    public void onDataChange(DataSnapshot dataSnapshot) {
+                        if (dataSnapshot.hasChildren()) {
+                            for (DataSnapshot snapshot : dataSnapshot.getChildren()) {
+                                if (snapshot.getValue().equals(userId)) {
+                                    listener.onComplete(true);
+                                }
+                            }
+                        } else {
+                            listener.onComplete(false);
+                        }
+                    }
+
+                    @Override
+                    public void onCancelled(DatabaseError databaseError) {
+                        listener.onFailed();
+                    }
+                });
+    }
+
+    /* To avoid notifications for already seen requests. */
+    public static void updateSeen(List<Friend> requests) {
+        String userId = AuthPresenter.getCurrentUserId();
+        if (userId == null) {
+            return;
+        }
+
+        FriendsDatabaseHelper.pushListOfFriends(requests, getSeenReference(userId));
+    }
+
+    public static DatabaseReference getSeenReference(@NonNull String userId) {
+        return (FirebaseDatabase.getInstance()
+                .getReference(Constants.FIREBASE_DATABASE_REFERENCE_SEEN)
                 .child(Constants.FIREBASE_DATABASE_REFERENCE_SEEN_REQUESTS)
                 .child(userId));
     }
 
-    public static DatabaseReference getRequestsCountReference(@NonNull String userId) {
-        return (FirebaseDatabase.getInstance().getReference(Constants.FIREBASE_DATABASE_REFERENCE_META)
+    static DatabaseReference getCountReference(@NonNull String userId) {
+        return (FirebaseDatabase.getInstance()
+                .getReference(Constants.FIREBASE_DATABASE_REFERENCE_META)
                 .child(Constants.FIREBASE_DATABASE_REFERENCE_META_REQUESTS)
                 .child(userId)
                 .child(Constants.FIREBASE_DATABASE_REFERENCE_META_REQUESTS_COUNT));
     }
 
-    public static DatabaseReference getRequestsDataReference(@NonNull String userId) {
-        return (FirebaseDatabase.getInstance().getReference(Constants.FIREBASE_DATABASE_REFERENCE_REQUESTS)
+    static DatabaseReference getDataReference(@NonNull String userId) {
+        return (FirebaseDatabase.getInstance()
+                .getReference(Constants.FIREBASE_DATABASE_REFERENCE_REQUESTS)
                 .child(userId));
     }
-
 }

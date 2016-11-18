@@ -46,7 +46,6 @@ public class UniqueId {
     }
 
     public static String getTimelineFragmentTag(Friend friend) {
-        String tag = friend.getFirebaseId() + "fragmentTag";
-        return tag;
+        return friend.getFirebaseId() + "fragmentTag";
     }
 }

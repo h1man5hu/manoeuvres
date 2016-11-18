@@ -9,12 +9,15 @@ import android.view.View;
 
 import com.manoeuvres.android.R;
 
-
 public class DividerItemDecoration extends RecyclerView.ItemDecoration {
     private Drawable mDivider;
 
     public DividerItemDecoration(Context context) {
-        mDivider = ResourcesCompat.getDrawable(context.getResources(), R.drawable.divider_line, null);
+        mDivider = ResourcesCompat.getDrawable(
+                context.getResources(),
+                R.drawable.divider_line,
+                null
+        );
     }
 
     @Override

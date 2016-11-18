@@ -1,6 +1,5 @@
 package com.manoeuvres.android.timeline;
 
-
 import android.app.NotificationManager;
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -40,43 +39,24 @@ import com.manoeuvres.android.util.TextHelper;
 import com.manoeuvres.android.util.UniqueId;
 import com.manoeuvres.android.views.DividerItemDecoration;
 
-
 public class TimelineFragment extends Fragment implements MovesListener, LogsListener, NetworkListener {
 
     private MovesPresenter mMovesPresenter;
     private LogsPresenter mLogsPresenter;
-
     private NetworkMonitor mNetworkMonitor;
-
     private RecyclerView mRecyclerView;
     private RecyclerView.Adapter mAdapter;
-
-    /*
-     * This fragment can display the logs of either the user or a friend of the user.
-     * If the logs of a friend are to be displayed, these details are taken from the
-     * fragment's arguments. Otherwise, these are initialized to the user's details.
-     */
-    private String mCurrentUserId;
-    private String mCurrentUserName;
-
     private SharedPreferences mSharedPreferences;
-
     private MainActivity mMainActivity;
     private FloatingActionButton mFab;
     private NavigationMenu mNavigationMenu;
-
-    private Gson mGson;
-
     private ProgressBar mProgressBar;
     private TextView mBackgroundTextView;
-
     private boolean mIsFriend;
-
     private Snackbar mNoConnectionSnackbar;
-
     private NotificationManager mNotificationManager;
-
-    /* Display progress only when the fragment is created, not restarted. */
+    private String mCurrentUserId;
+    private String mCurrentUserName;
     private boolean mIsRestarted;
 
     public TimelineFragment() {
@@ -87,7 +67,7 @@ public class TimelineFragment extends Fragment implements MovesListener, LogsLis
         TimelineFragment fragment = new TimelineFragment();
 
         Bundle args = new Bundle();
-        args.putString(Constants.KEY_ARGUMENTS_FIREBASE_ID_USER_FRAGMENT_TIMELINE_, currentUserId);
+        args.putString(Constants.KEY_ARGUMENTS_FIREBASE_ID_USER_FRAGMENT_TIMELINE, currentUserId);
         args.putString(Constants.KEY_ARGUMENTS_USER_NAME_FRAGMENT_TIMELINE, currentUserName);
 
         fragment.setArguments(args);
@@ -99,12 +79,13 @@ public class TimelineFragment extends Fragment implements MovesListener, LogsLis
         super.onAttach(context);
 
         mMainActivity = (MainActivity) context;
+        mSharedPreferences = PreferenceManager.getDefaultSharedPreferences(
+                mMainActivity.getApplicationContext()
+        );
 
-        mSharedPreferences = PreferenceManager.getDefaultSharedPreferences(mMainActivity.getApplicationContext());
-
-        mGson = new Gson();
-
-        mNotificationManager = (NotificationManager) mMainActivity.getSystemService(Context.NOTIFICATION_SERVICE);
+        mNotificationManager = (NotificationManager) mMainActivity.getSystemService(
+                Context.NOTIFICATION_SERVICE
+        );
     }
 
     @Override
@@ -115,9 +96,15 @@ public class TimelineFragment extends Fragment implements MovesListener, LogsLis
 
         Bundle bundle = getArguments();
         if (bundle != null) {
-            mCurrentUserId = bundle.getString(Constants.KEY_ARGUMENTS_FIREBASE_ID_USER_FRAGMENT_TIMELINE_);
-            mCurrentUserName = bundle.getString(Constants.KEY_ARGUMENTS_USER_NAME_FRAGMENT_TIMELINE);
-            if (user != null && !mCurrentUserId.equals(user.getUid())) mIsFriend = true;
+            mCurrentUserId = bundle.getString(
+                    Constants.KEY_ARGUMENTS_FIREBASE_ID_USER_FRAGMENT_TIMELINE
+            );
+            mCurrentUserName = bundle.getString(
+                    Constants.KEY_ARGUMENTS_USER_NAME_FRAGMENT_TIMELINE
+            );
+            if (user != null && !mCurrentUserId.equals(user.getUid())) {
+                mIsFriend = true;
+            }
         } else {
             if (user != null) {
                 mCurrentUserId = user.getUid();
@@ -157,33 +144,47 @@ public class TimelineFragment extends Fragment implements MovesListener, LogsLis
 
         mMainActivity.setTitle(mCurrentUserName);
         MenuItem menuItem;
-        if (!mIsFriend) menuItem = mNavigationMenu.findItem(R.id.nav_timeline);
-        else menuItem = mNavigationMenu.findItem(UniqueId.getMenuId(new Friend(mCurrentUserId)));
+        if (!mIsFriend) {
+            menuItem = mNavigationMenu.findItem(R.id.nav_timeline);
+        } else {
+            menuItem = mNavigationMenu.findItem(UniqueId.getMenuId(new Friend(mCurrentUserId)));
+        }
 
-        if (menuItem != null) menuItem.setChecked(true);
+        if (menuItem != null) {
+            menuItem.setChecked(true);
+        }
 
-        mLogsPresenter = LogsPresenter.getInstance(mMainActivity.getApplicationContext())
-                .addFriend(mCurrentUserId)
-                .attach(this, mCurrentUserId);
+        mLogsPresenter = LogsPresenter.getInstance(mMainActivity.getApplicationContext());
+        mLogsPresenter.addFriend(mCurrentUserId);
+        mLogsPresenter.attach(this, mCurrentUserId);
 
-        mMovesPresenter = MovesPresenter.getInstance(mMainActivity.getApplicationContext())
-                .addFriend(mCurrentUserId)
-                .attach(this, mCurrentUserId)
-                .sync(mCurrentUserId);
+        mMovesPresenter = MovesPresenter.getInstance(mMainActivity.getApplicationContext());
+        mMovesPresenter.addFriend(mCurrentUserId);
+        mMovesPresenter.attach(this, mCurrentUserId);
+        mMovesPresenter.sync(mCurrentUserId);
 
-        if (mMovesPresenter.isLoaded(mCurrentUserId)) onCompleteMovesLoading(mCurrentUserId);
+        if (mMovesPresenter.isLoaded(mCurrentUserId)) {
+            onCompleteMovesLoading(mCurrentUserId);
+        }
 
-        if (mLogsPresenter.isLoaded(mCurrentUserId)) mAdapter.notifyDataSetChanged();
+        if (mLogsPresenter.isLoaded(mCurrentUserId)) {
+            mAdapter.notifyDataSetChanged();
+        }
 
         mNetworkMonitor = NetworkMonitor.getInstance(mMainActivity.getApplicationContext())
                 .attach(this);
-        if (mNetworkMonitor.isNetworkConnected()) onNetworkConnected();
-        else onNetworkDisconnected();
+        if (mNetworkMonitor.isNetworkConnected()) {
+            onNetworkConnected();
+        } else {
+            onNetworkDisconnected();
+        }
     }
 
     @Override
     public void onStartMovesLoading(String userId) {
-        if (mLogsPresenter.size(mCurrentUserId) == 0) showProgress();
+        if (mLogsPresenter.size(mCurrentUserId) == 0) {
+            showProgress();
+        }
     }
 
     @Override
@@ -225,13 +226,19 @@ public class TimelineFragment extends Fragment implements MovesListener, LogsLis
     public void onLogAdded(String userId, int index, Log log) {
         mAdapter.notifyItemInserted(0);
         mRecyclerView.scrollToPosition(0);
-        mSharedPreferences.edit().putString(UniqueId.getLatestLogKey(mCurrentUserId), mGson.toJson(mLogsPresenter.get(mCurrentUserId, "0"))).apply();
+        mSharedPreferences.edit().putString(
+                UniqueId.getLatestLogKey(mCurrentUserId),
+                new Gson().toJson(mLogsPresenter.get(mCurrentUserId, "0"))
+        ).apply();
     }
 
     @Override
     public void onLogChanged(String userId, int index, Log log) {
         mAdapter.notifyItemChanged(index);
-        mSharedPreferences.edit().putString(UniqueId.getLatestLogKey(mCurrentUserId), mGson.toJson(mLogsPresenter.get(mCurrentUserId, String.valueOf(index)))).apply();
+        mSharedPreferences.edit().putString(
+                UniqueId.getLatestLogKey(mCurrentUserId),
+                new Gson().toJson(mLogsPresenter.get(mCurrentUserId, String.valueOf(index)))
+        ).apply();
         mNotificationManager.cancel(UniqueId.getLogId(new Friend(mCurrentUserId)));
     }
 
@@ -244,20 +251,28 @@ public class TimelineFragment extends Fragment implements MovesListener, LogsLis
     public void onCompleteLogsLoading(String userId) {
         hideProgress();
         mNotificationManager.cancel(UniqueId.getLogId(new Friend(mCurrentUserId)));
-        mSharedPreferences.edit().putString(UniqueId.getLatestLogKey(userId), mGson.toJson(mLogsPresenter.get(userId, "0"))).apply();
+        mSharedPreferences.edit().putString(
+                UniqueId.getLatestLogKey(userId),
+                new Gson().toJson(mLogsPresenter.get(userId, "0"))
+        ).apply();
     }
 
     @Override
     public void onNetworkConnected() {
-        if (mNoConnectionSnackbar != null && mNoConnectionSnackbar.isShown())
+        if (mNoConnectionSnackbar != null && mNoConnectionSnackbar.isShown()) {
             mNoConnectionSnackbar.dismiss();
-        if (!mIsFriend) mFab.show();
+        }
+        if (!mIsFriend) {
+            mFab.show();
+        }
     }
 
     @Override
     public void onNetworkDisconnected() {
         mFab.hide();
-        mNoConnectionSnackbar = Snackbar.make(mRecyclerView, R.string.snackbar_no_internet, Snackbar.LENGTH_INDEFINITE);
+        mNoConnectionSnackbar = Snackbar.make(
+                mRecyclerView, R.string.snackbar_no_internet, Snackbar.LENGTH_INDEFINITE
+        );
         mNoConnectionSnackbar.show();
     }
 
@@ -268,11 +283,16 @@ public class TimelineFragment extends Fragment implements MovesListener, LogsLis
             mProgressBar.setVisibility(View.VISIBLE);
             String formatString = getString(R.string.textview_loading_logs);
             String nameArgument;
-            if (mIsFriend) nameArgument = mCurrentUserName + "'s";
-            else nameArgument = getString(R.string.text_loading_logs_your);
+            if (mIsFriend) {
+                nameArgument = mCurrentUserName + "'s";
+            } else {
+                nameArgument = getString(R.string.text_loading_logs_your);
+            }
             mBackgroundTextView.setText(String.format(formatString, nameArgument));
             mBackgroundTextView.setVisibility(View.VISIBLE);
-        } else if (mIsRestarted && (mLogsPresenter.size(mCurrentUserId) == 0)) hideProgress();
+        } else if (mIsRestarted && (mLogsPresenter.size(mCurrentUserId) == 0)) {
+            hideProgress();
+        }
     }
 
     private void hideProgress() {
@@ -280,14 +300,21 @@ public class TimelineFragment extends Fragment implements MovesListener, LogsLis
             mRecyclerView.setVisibility(View.VISIBLE);
             mBackgroundTextView.setVisibility(View.INVISIBLE);
         } else {
-            if (!mIsFriend) mBackgroundTextView.setText(R.string.no_logs_user);
-            else
-                mBackgroundTextView.setText(String.format(getString(R.string.no_logs_friend), mCurrentUserName));
+            if (!mIsFriend) {
+                mBackgroundTextView.setText(R.string.no_logs_user);
+            } else {
+                mBackgroundTextView.setText(String.format(
+                        getString(R.string.no_logs_friend), mCurrentUserName)
+                );
+            }
+
             mBackgroundTextView.setVisibility(View.VISIBLE);
             mRecyclerView.setVisibility(View.INVISIBLE);
         }
         mProgressBar.setVisibility(View.INVISIBLE);
-        if (mNetworkMonitor.isNetworkConnected() && !mIsFriend) mFab.show();
+        if (mNetworkMonitor.isNetworkConnected() && !mIsFriend) {
+            mFab.show();
+        }
     }
 
     @Override
@@ -296,15 +323,20 @@ public class TimelineFragment extends Fragment implements MovesListener, LogsLis
 
         /* Update the cache of logs and moves for this user. */
         if (!mMainActivity.isFinishing()) {
+            Gson gson = new Gson();
             mSharedPreferences.edit()
-                    .putString(UniqueId.getLogsDataKey(mCurrentUserId), mGson.toJson(mLogsPresenter.getAll(mCurrentUserId)))
-                    .putString(UniqueId.getMovesDataKey(mCurrentUserId), mGson.toJson(mMovesPresenter.getAll(mCurrentUserId)))
-                    .apply();
+                    .putString(
+                            UniqueId.getLogsDataKey(mCurrentUserId),
+                            gson.toJson(mLogsPresenter.getAll(mCurrentUserId))
+                    ).putString(
+                    UniqueId.getMovesDataKey(mCurrentUserId),
+                    gson.toJson(mMovesPresenter.getAll(mCurrentUserId))
+            ).apply();
         }
 
         mNetworkMonitor.detach(this);
-        mMovesPresenter.detach(this, mCurrentUserId);
-        mLogsPresenter.detach(this, mCurrentUserId);
+        mMovesPresenter = (MovesPresenter) mMovesPresenter.detach(this, mCurrentUserId);
+        mLogsPresenter = (LogsPresenter) mLogsPresenter.detach(this, mCurrentUserId);
 
         mIsRestarted = true;
     }
@@ -313,7 +345,9 @@ public class TimelineFragment extends Fragment implements MovesListener, LogsLis
 
         @Override
         public TimelineAdapter.ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
-            View v = LayoutInflater.from(parent.getContext()).inflate(R.layout.list_item_timeline, parent, false);
+            View v = LayoutInflater.from(parent.getContext()).inflate(
+                    R.layout.list_item_timeline, parent, false
+            );
             return (new ViewHolder(v));
         }
 
@@ -321,6 +355,7 @@ public class TimelineFragment extends Fragment implements MovesListener, LogsLis
         public void onBindViewHolder(TimelineAdapter.ViewHolder holder, int position) {
             Log log = mLogsPresenter.get(mCurrentUserId, String.valueOf(position));
             Move move = mMovesPresenter.get(mCurrentUserId, log.getMoveId());
+
             /*
              * The text to be displayed depends on the status of the log. If it is in progress,
              * display the text in present tense, otherwise display it in past tense.
@@ -328,10 +363,20 @@ public class TimelineFragment extends Fragment implements MovesListener, LogsLis
             if (move != null) {
                 if (log.getEndTime() != 0) {
                     holder.mMoveTitle.setText(move.getPast());
-                    holder.mMoveSubtitle.setText(String.format(getString(R.string.log_sub_title_text_past), TextHelper.getDurationText(log.getStartTime(), log.getEndTime(), getResources())));
+                    holder.mMoveSubtitle.setText(String.format(
+                            getString(R.string.log_sub_title_text_past),
+                            TextHelper.getDurationText(
+                                    log.getStartTime(), log.getEndTime(), getResources()
+                            )
+                    ));
                 } else {
                     holder.mMoveTitle.setText(move.getPresent());
-                    holder.mMoveSubtitle.setText(String.format(getString(R.string.log_sub_title_text_present), TextHelper.getDurationText(log.getStartTime(), log.getEndTime(), getResources())));
+                    holder.mMoveSubtitle.setText(String.format(
+                            getString(R.string.log_sub_title_text_present),
+                            TextHelper.getDurationText(
+                                    log.getStartTime(), log.getEndTime(), getResources()
+                            )
+                    ));
                 }
             }
         }

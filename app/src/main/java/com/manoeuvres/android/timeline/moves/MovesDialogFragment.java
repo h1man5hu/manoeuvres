@@ -1,6 +1,5 @@
 package com.manoeuvres.android.timeline.moves;
 
-
 import android.content.Context;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
@@ -17,30 +16,31 @@ import com.google.firebase.auth.FirebaseUser;
 import com.manoeuvres.android.R;
 import com.manoeuvres.android.views.DividerItemDecoration;
 
-
 public class MovesDialogFragment extends DialogFragment {
 
     private DividerItemDecoration mItemDecoration;
-
     private MovesPresenter mMovesPresenter;
-
     private String mUserId;
-
     private Object[] moves;
 
     @Override
     public void onAttach(Context context) {
         super.onAttach(context);
+
         mItemDecoration = new DividerItemDecoration(context);
         mMovesPresenter = MovesPresenter.getInstance(context.getApplicationContext());
 
         FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
-        if (user != null) mUserId = user.getUid();
+        if (user != null) {
+            mUserId = user.getUid();
+        }
     }
 
     @Nullable
     @Override
-    public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
+    public View onCreateView(LayoutInflater inflater,
+                             @Nullable ViewGroup container,
+                             @Nullable Bundle savedInstanceState) {
         View rootView = inflater.inflate(R.layout.fragment_dialog_moves, container, false);
 
         RecyclerView recyclerView = (RecyclerView) rootView.findViewById(R.id.recycler_view_moves);
@@ -65,7 +65,9 @@ public class MovesDialogFragment extends DialogFragment {
 
         @Override
         public ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
-            View v = LayoutInflater.from(parent.getContext()).inflate(R.layout.list_item_move_selector_title, parent, false);
+            View v = LayoutInflater.from(parent.getContext()).inflate(
+                    R.layout.list_item_move_selector_title, parent, false
+            );
             return (new ViewHolder(v));
         }
 

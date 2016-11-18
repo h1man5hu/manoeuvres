@@ -24,23 +24,21 @@ import com.manoeuvres.android.friends.requests.RequestsPresenter.RequestsListene
 import com.manoeuvres.android.core.MainActivity;
 import com.manoeuvres.android.friends.Friend;
 import com.manoeuvres.android.timeline.logs.Log;
+import com.manoeuvres.android.database.CompletionListeners.GetStringListener;
 import com.manoeuvres.android.util.Constants;
 import com.manoeuvres.android.util.TextHelper;
 import com.manoeuvres.android.util.UniqueId;
 
 import java.util.List;
 
+public class NotificationService extends Service implements
+        RequestsListener,
+        FollowingListener,
+        LatestLogListener {
 
-public class NotificationService extends Service implements RequestsListener, FollowingListener, LatestLogListener {
-
-    /* Start the service only once. */
     private boolean mIsStarted;
-
     private SharedPreferences mSharedPreferences;
-    private Gson mGson;
-
     private NotificationManager mNotificationManager;
-
     private FacebookFriendsPresenter mFacebookFriendsPresenter;
     private FollowingPresenter mFollowingPresenter;
     private MovesPresenter mMovesPresenter;
@@ -60,31 +58,52 @@ public class NotificationService extends Service implements RequestsListener, Fo
         if (!mIsStarted) {
             mIsStarted = true;
 
-            mSharedPreferences = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
-            mGson = new Gson();
+            mSharedPreferences =
+                    PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
 
-            mNotificationManager = (NotificationManager) getSystemService(NotificationService.NOTIFICATION_SERVICE);
+            mNotificationManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
 
-            mSeenRequestsPresenter = SeenRequestsPresenter.getInstance().sync();
-            mSeenFollowingPresenter = SeenFollowingPresenter.getInstance().sync();
-            mFacebookFriendsPresenter = FacebookFriendsPresenter.getInstance(getApplicationContext())
-                    .loadCache(PreferenceManager.getDefaultSharedPreferences(getApplicationContext()))
-                    .sync();
-            mFollowingPresenter = FollowingPresenter.getInstance(getApplicationContext()).attach(this).sync();
+            mSeenRequestsPresenter = SeenRequestsPresenter.getInstance();
+            mSeenRequestsPresenter.sync();
+
+            mSeenFollowingPresenter = SeenFollowingPresenter.getInstance();
+            mSeenFollowingPresenter.sync();
+
+            mFacebookFriendsPresenter =
+                    FacebookFriendsPresenter.getInstance(getApplicationContext());
+            mFacebookFriendsPresenter.sync();
+
+            mFollowingPresenter = FollowingPresenter.getInstance(getApplicationContext());
+            mFollowingPresenter.attach(this);
+            mFollowingPresenter.sync();
+
             mMovesPresenter = MovesPresenter.getInstance(getApplicationContext());
-            mLatestLogPresenter = LatestLogPresenter.getInstance(getApplicationContext());
-            mLogsPresenter = LogsPresenter.getInstance(getApplicationContext());
-            RequestsPresenter.getInstance().attach(this).sync();
 
-            if (mFollowingPresenter.isLoaded()) onCompleteFollowingLoading();
+            mLatestLogPresenter = LatestLogPresenter.getInstance(getApplicationContext());
+
+            mLogsPresenter = LogsPresenter.getInstance(getApplicationContext());
+
+            RequestsPresenter requestsPresenter = RequestsPresenter.getInstance();
+            requestsPresenter.attach(this);
+            requestsPresenter.sync();
+
+            if (mFollowingPresenter.isLoaded()) {
+                onCompleteFollowingLoading();
+            }
         }
         return START_STICKY;
     }
 
     @Override
     public void onRequestAdded(int index, Friend friend) {
-        if (!mSeenRequestsPresenter.contains(friend))
+        if (!mSeenRequestsPresenter.contains(friend)) {
             displayNotification(friend, Constants.NOTIFICATION_TYPE_REQUEST);
+        }
+    }
+
+    @Override
+    public void onRequestChanged(int index, Friend friend) {
+
     }
 
     @Override
@@ -94,19 +113,28 @@ public class NotificationService extends Service implements RequestsListener, Fo
 
     @Override
     public void onFollowingAdded(int index, Friend friend) {
-        if (!mSeenFollowingPresenter.contains(friend))
+        if (!mSeenFollowingPresenter.contains(friend)) {
             displayNotification(friend, Constants.NOTIFICATION_TYPE_FOLLOWING);
-        mSharedPreferences.edit().putString(Constants.KEY_SHARED_PREF_DATA_FOLLOWING, mGson.toJson(mFollowingPresenter.getAll())).apply();
-        android.util.Log.v(Constants.TAG_LOG_SERVICE_NOTIFICATION, friend.getName() + " "
-                + " " + friend.getFirebaseId() + " " + friend.getFacebookId() + " added on Firebase.");
-        mLatestLogPresenter.addFriend(friend.getFirebaseId()).attach(this, friend.getFirebaseId()).sync(friend.getFirebaseId());
+        }
+
+        mSharedPreferences.edit().putString(
+                Constants.KEY_SHARED_PREF_DATA_FOLLOWING,
+                new Gson().toJson(mFollowingPresenter.getAll())
+        ).apply();
+
+        mLatestLogPresenter.addFriend(friend.getFirebaseId())
+                .attach(this, friend.getFirebaseId())
+                .sync(friend.getFirebaseId());
     }
 
     @Override
     public void onFollowingRemoved(int index, Friend friend) {
         mNotificationManager.cancel(UniqueId.getFollowingId(friend));
         mNotificationManager.cancel(UniqueId.getLogId(friend));
-        mSharedPreferences.edit().putString(Constants.KEY_SHARED_PREF_DATA_FOLLOWING, mGson.toJson(mFollowingPresenter.getAll())).apply();
+        mSharedPreferences.edit().putString(
+                Constants.KEY_SHARED_PREF_DATA_FOLLOWING,
+                new Gson().toJson(mFollowingPresenter.getAll())
+        ).apply();
         mLatestLogPresenter.removeFriend(friend.getFirebaseId());
         mMovesPresenter.removeFriend(friend.getFirebaseId());
         mLogsPresenter.removeFriend(friend.getFirebaseId());
@@ -123,43 +151,55 @@ public class NotificationService extends Service implements RequestsListener, Fo
          * A notification is displayed based on the cached log and the latest log.
          */
         String oldLogCache = mSharedPreferences.getString(UniqueId.getLatestLogKey(userId), "");
-        Log oldLog = mGson.fromJson(oldLogCache, Log.class);
+        Log oldLog = new Gson().fromJson(oldLogCache, Log.class);
 
-        if (oldLog == null || (oldLog.getStartTime() != newLog.getStartTime() || oldLog.getEndTime() != newLog.getEndTime()))
+        if (oldLog == null
+                || (oldLog.getStartTime() != newLog.getStartTime()
+                || oldLog.getEndTime() != newLog.getEndTime())) {
             displayNotification(mFacebookFriendsPresenter.get(userId), inProgress, newLog);
+        }
     }
 
     /* Called from the overloaded methods to display a notification. */
-    private void displayNotification(final Friend friend, String type, final boolean inProgress, final Log log) {
+    private void displayNotification(final Friend friend, String type,
+                                     final boolean inProgress, final Log log) {
         Intent intent = new Intent(this, MainActivity.class);
         intent.putExtra(Constants.KEY_EXTRA_NOTIFICATION_SERVICE, type);
 
         /*
-         * If the user clicks on a notification for a log update from a friend, or a friend accepting the request,
-         * display the friend's timeline. The Firebase Id of the friend is passed to the main activity.
+         * If the user clicks on a notification for a log update from a friend, or a friend
+         * accepting the request, display the friend's timeline. The Firebase Id of the friend is
+         * passed to the main activity.
          */
-        if (type.equals(Constants.NOTIFICATION_TYPE_LOG) || (type.equals(Constants.NOTIFICATION_TYPE_FOLLOWING)))
-            intent.putExtra(Constants.KEY_EXTRA_FRAGMENT_TIMELINE_FRIEND_ID, friend.getFirebaseId());
+        if (type.equals(Constants.NOTIFICATION_TYPE_LOG)
+                || (type.equals(Constants.NOTIFICATION_TYPE_FOLLOWING)))
+            intent.putExtra(
+                    Constants.KEY_EXTRA_FRAGMENT_TIMELINE_FRIEND_ID, friend.getFirebaseId()
+            );
 
 
-        PendingIntent pendingIntent = PendingIntent.getActivity(NotificationService.this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+        PendingIntent pendingIntent = PendingIntent.getActivity(
+                NotificationService.this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT
+        );
 
-        final android.support.v4.app.NotificationCompat.Builder builder = new android.support.v4.app.NotificationCompat
-                .Builder(NotificationService.this)
-                .setSmallIcon(R.drawable.ic_notification_small)
-                .setColor(ContextCompat.getColor(this, R.color.colorPrimaryDark))
-                .setDefaults(Notification.DEFAULT_ALL)
-                .setAutoCancel(true)
-                .setContentIntent(pendingIntent);
+        final android.support.v4.app.NotificationCompat.Builder builder =
+                new android.support.v4.app.NotificationCompat
+                        .Builder(NotificationService.this)
+                        .setSmallIcon(R.drawable.ic_notification_small)
+                        .setColor(ContextCompat.getColor(this, R.color.colorPrimaryDark))
+                        .setDefaults(Notification.DEFAULT_ALL)
+                        .setAutoCancel(true)
+                        .setContentIntent(pendingIntent);
 
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
             builder.setCategory(Notification.CATEGORY_SOCIAL);
+        }
 
-        if (mFacebookFriendsPresenter.contains(friend))
+        if (mFacebookFriendsPresenter.contains(friend)) {
             builder.setContentTitle(mFacebookFriendsPresenter.get(friend).getName());
-        else
+        } else {
             builder.setContentTitle(getString(R.string.app_name));
-
+        }
 
         switch (type) {
             case Constants.NOTIFICATION_TYPE_REQUEST:
@@ -171,29 +211,43 @@ public class NotificationService extends Service implements RequestsListener, Fo
                 mNotificationManager.notify(UniqueId.getFollowingId(friend), builder.build());
                 break;
             case Constants.NOTIFICATION_TYPE_LOG:
-                mMovesPresenter.loadMove(friend, log.getMoveId(), inProgress, new MovesPresenter.LoadMoveListener() {
-                    @Override
-                    public void onMoveLoaded(String text) {
-                        if (inProgress) {
-                            text = getString(R.string.notification_text_log_present) + text.toLowerCase() + ".";
-                        } else {
-                            text = getString(R.string.notification_text_log_past) + text.toLowerCase() + " "
-                                    + String.format(getString(R.string.log_sub_title_text_past), TextHelper.getDurationText(log.getStartTime(), log.getEndTime(), getResources())).trim()
-                                    + ".";
-                        }
-                        displayLogNotification(builder, text, friend);
-                    }
+                mMovesPresenter.loadMove(
+                        friend, log.getMoveId(), inProgress, new GetStringListener() {
+                            @Override
+                            public void onComplete(String text) {
+                                if (inProgress) {
+                                    text = getString(R.string.notification_text_log_present) +
+                                            text.toLowerCase() +
+                                            ".";
+                                } else {
+                                    text = getString(R.string.notification_text_log_past) +
+                                            text.toLowerCase() +
+                                            " " +
+                                            String.format(
+                                                    getString(R.string.log_sub_title_text_past),
+                                                    TextHelper.getDurationText(
+                                                            log.getStartTime(),
+                                                            log.getEndTime(),
+                                                            getResources())
+                                            ).trim() +
+                                            ".";
+                                }
+                                displayLogNotification(builder, text, friend);
+                            }
 
-                    @Override
-                    public void onFailed() {
+                            @Override
+                            public void onFailed() {
 
-                    }
-                });
+                            }
+                        });
                 break;
+            default:
         }
     }
 
-    private void displayLogNotification(android.support.v4.app.NotificationCompat.Builder builder, String text, Friend friend) {
+    private void displayLogNotification(android.support.v4.app.NotificationCompat.Builder builder,
+                                        String text,
+                                        Friend friend) {
         builder.setContentText(text);
         mNotificationManager.notify(UniqueId.getLogId(friend), builder.build());
     }
@@ -239,17 +293,20 @@ public class NotificationService extends Service implements RequestsListener, Fo
     }
 
     /*
-     * A notification when a request is accepted is a low-priority notification. Once it has been seen,
-     * update the seen notifications on the database to block any further notifications for this event.
+     * A notification when a request is accepted is a low-priority notification. Once it has been
+     * seen, update the seen notifications on the database to block any further notifications for
+     * this event.
      */
     @Override
     public void onCompleteFollowingLoading() {
         List<Friend> following = mFollowingPresenter.getAll();
         for (int i = 0; i < following.size(); i++) {
             Friend friend = following.get(i);
-            mLatestLogPresenter.addFriend(friend.getFirebaseId()).attach(this, friend.getFirebaseId()).sync(friend.getFirebaseId());
+            mLatestLogPresenter.addFriend(friend.getFirebaseId())
+                    .attach(this, friend.getFirebaseId())
+                    .sync(friend.getFirebaseId());
         }
-        mSeenFollowingPresenter.pushSeenFollowing(mFollowingPresenter.getAll());
+        mSeenFollowingPresenter.updateSeen();
     }
 
     @Nullable
@@ -261,6 +318,8 @@ public class NotificationService extends Service implements RequestsListener, Fo
     @Override
     public void onDestroy() {
         super.onDestroy();
-        mFacebookFriendsPresenter.saveCache(PreferenceManager.getDefaultSharedPreferences(getApplicationContext()));
+
+        mSeenFollowingPresenter.stopSync();
+        mSeenRequestsPresenter.stopSync();
     }
 }

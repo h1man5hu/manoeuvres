@@ -1,6 +1,5 @@
 package com.manoeuvres.android.notifications;
 
-
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.preference.PreferenceManager;
@@ -24,18 +23,13 @@ public class LatestLogPresenter {
     private static LatestLogPresenter ourInstance;
 
     private SimpleArrayMap<String, Log> mLatestLogs;
-
     private ArrayMap<String, LatestLogListener[]> mObservers;
-
     private ArrayMap<String, DatabaseReference> mReferences;
     private SimpleArrayMap<String, ValueEventListener> mListeners;
-
     private SharedPreferences mSharedPreferences;
-    private Gson mGson;
 
     private LatestLogPresenter(Context applicationContext) {
         mSharedPreferences = PreferenceManager.getDefaultSharedPreferences(applicationContext);
-        mGson = new Gson();
 
         int capacity = Constants.INITIAL_COLLECTION_CAPACITY_FOLLOWING + 1;
         mObservers = new ArrayMap<>(capacity);
@@ -45,7 +39,9 @@ public class LatestLogPresenter {
     }
 
     public static LatestLogPresenter getInstance(Context applicationContext) {
-        if (ourInstance == null) ourInstance = new LatestLogPresenter(applicationContext);
+        if (ourInstance == null) {
+            ourInstance = new LatestLogPresenter(applicationContext);
+        }
         return ourInstance;
     }
 
@@ -57,15 +53,18 @@ public class LatestLogPresenter {
             /* If the observer is already attached, return. */
             for (int i = 0; i < listeners.length; i++) {
                 LatestLogListener observer = listeners[i];
-                if (observer != null && observer.equals(listener)) return ourInstance;
+                if (observer != null && observer.equals(listener)) {
+                    return ourInstance;
+                }
             }
 
             /* Insert the observer at the first available slot. */
-            for (int i = 0; i < listeners.length; i++)
+            for (int i = 0; i < listeners.length; i++) {
                 if (listeners[i] == null) {
                     listeners[i] = listener;
                     return ourInstance;
                 }
+            }
 
         } else {
             listeners = new LatestLogListener[Constants.MAX_LATEST_LOG_LISTENERS_COUNT];
@@ -79,11 +78,18 @@ public class LatestLogPresenter {
         LatestLogListener listener = (LatestLogListener) component;
         LatestLogListener[] listeners = mObservers.get(userId);
         if (listeners != null) {
-            for (int i = 0; i < listeners.length; i++)
-                if (listeners[i] != null && listeners[i].equals(listener)) listeners[i] = null;
+            for (int i = 0; i < listeners.length; i++) {
+                if (listeners[i] != null && listeners[i].equals(listener)) {
+                    listeners[i] = null;
+                }
+            }
 
             /* If there is at least one observer attached, return. */
-            for (int i = 0; i < listeners.length; i++) if (listeners[i] != null) return ourInstance;
+            for (int i = 0; i < listeners.length; i++) {
+                if (listeners[i] != null) {
+                    return ourInstance;
+                }
+            }
 
             mObservers.remove(userId);
             stopSync(userId);
@@ -92,15 +98,18 @@ public class LatestLogPresenter {
             if (mObservers.size() == 0) {
                 stopSync();
                 ourInstance = null;
-            }
-            else {
+            } else {
                 Collection<LatestLogListener[]> listenerArrays = mObservers.values();
-                if (listenerArrays.size() > 0)
-                    for (LatestLogListener[] listenerArray : listenerArrays)
+                if (listenerArrays.size() > 0) {
+                    for (LatestLogListener[] listenerArray : listenerArrays) {
                         for (int i = 0; i < listenerArray.length; i++) {
                             LatestLogListener observer = listenerArray[i];
-                            if (observer != null) return ourInstance;
+                            if (observer != null) {
+                                return ourInstance;
+                            }
                         }
+                    }
+                }
                 stopSync();
                 ourInstance = null;
             }
@@ -110,11 +119,12 @@ public class LatestLogPresenter {
 
     public LatestLogPresenter addFriend(String userId) {
         DatabaseReference databaseReference = mReferences.get(userId);
-        if (databaseReference == null)
-            mReferences.put(userId, LogsDatabaseHelper.getLogsDataReference(userId));
+        if (databaseReference == null) {
+            mReferences.put(userId, LogsDatabaseHelper.getDataReference(userId));
+        }
 
         String latestLogString = mSharedPreferences.getString(UniqueId.getLatestLogKey(userId), "");
-        Log cachedLog = mGson.fromJson(latestLogString, Log.class);
+        Log cachedLog = new Gson().fromJson(latestLogString, Log.class);
         if (cachedLog != null) {
             mLatestLogs.put(userId, cachedLog);
         }
@@ -123,20 +133,31 @@ public class LatestLogPresenter {
 
     LatestLogPresenter removeFriend(String userId) {
         stopSync(userId);
-        if (mObservers.containsKey(userId)) mObservers.remove(userId);
-        if (mListeners.containsKey(userId)) mListeners.remove(userId);
-        if (mReferences.containsKey(userId)) mReferences.remove(userId);
-        if (mLatestLogs.containsKey(userId)) mLatestLogs.remove(userId);
+        if (mObservers.containsKey(userId)) {
+            mObservers.remove(userId);
+        }
+        if (mListeners.containsKey(userId)) {
+            mListeners.remove(userId);
+        }
+        if (mReferences.containsKey(userId)) {
+            mReferences.remove(userId);
+        }
+        if (mLatestLogs.containsKey(userId)) {
+            mLatestLogs.remove(userId);
+        }
         return ourInstance;
     }
 
     public LatestLogPresenter sync(final String userId) {
-        if (userId == null) return ourInstance;
+        if (userId == null) {
+            return ourInstance;
+        }
+
         ValueEventListener listener = mListeners.get(userId);
         if (listener == null) {
             DatabaseReference reference = mReferences.get(userId);
             if (reference == null) {
-                reference = LogsDatabaseHelper.getLogsDataReference(userId);
+                reference = LogsDatabaseHelper.getDataReference(userId);
                 mReferences.put(userId, reference);
             }
             listener = reference.limitToLast(1).addValueEventListener(new ValueEventListener() {
@@ -144,7 +165,10 @@ public class LatestLogPresenter {
                 public void onDataChange(DataSnapshot dataSnapshot) {
                     if (dataSnapshot.hasChildren()) {
 
-                        /* If the endTime field of the latest log has a default value (0), the move is still in progress. */
+                        /*
+                         * If the endTime field of the latest log has a default value (0), the move
+                         * is still in progress.
+                         */
                         Log log = dataSnapshot.getChildren().iterator().next().getValue(Log.class);
                         mLatestLogs.put(userId, log);
                         boolean inProgress = log.getEndTime() == 0;
@@ -174,13 +198,21 @@ public class LatestLogPresenter {
 
     public LatestLogPresenter sync() {
         Set<String> keys = mReferences.keySet();
-        if (keys.size() > 0) for (String userId : keys) sync(userId);
+        if (keys.size() > 0) {
+            for (String userId : keys) {
+                sync(userId);
+            }
+        }
         return ourInstance;
     }
 
-    public LatestLogPresenter stopSync() {
+    private LatestLogPresenter stopSync() {
         Set<String> keys = mReferences.keySet();
-        if (keys.size() > 0) for (String userId : keys) stopSync(userId);
+        if (keys.size() > 0) {
+            for (String userId : keys) {
+                stopSync(userId);
+            }
+        }
         return ourInstance;
     }
 
@@ -202,11 +234,14 @@ public class LatestLogPresenter {
         if (observers != null) {
             for (int i = 0; i < observers.length; i++) {
                 LatestLogListener observer = observers[i];
-                if (observer != null)
+                if (observer != null) {
                     switch (event) {
                         case Constants.CALLBACK_CHANGE_DATA:
                             observer.onLatestLogChanged(userId, log, inProgress);
+                            break;
+                        default:
                     }
+                }
             }
         }
     }

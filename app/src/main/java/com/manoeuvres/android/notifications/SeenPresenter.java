@@ -4,13 +4,9 @@ package com.manoeuvres.android.notifications;
 import com.manoeuvres.android.friends.Friend;
 
 interface SeenPresenter {
-    SeenPresenter attach(Object component);
+    void sync();
 
-    SeenPresenter detach(Object component);
-
-    SeenPresenter sync();
-
-    SeenPresenter stopSync();
+    void stopSync();
 
     boolean contains(Friend friend);
 }

@@ -1,230 +1,103 @@
 package com.manoeuvres.android.friends.requests;
 
-
-import com.google.firebase.database.ChildEventListener;
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseError;
-import com.google.firebase.database.ValueEventListener;
+import com.google.firebase.database.DatabaseReference;
+import com.manoeuvres.android.friends.AbstractFriendsPresenter;
 import com.manoeuvres.android.friends.Friend;
-import com.manoeuvres.android.friends.FriendsPresenter;
-import com.manoeuvres.android.login.AuthPresenter;
 import com.manoeuvres.android.util.Constants;
 
-import java.util.ArrayList;
 import java.util.List;
 
-public class RequestsPresenter implements FriendsPresenter {
+public class RequestsPresenter extends AbstractFriendsPresenter {
+
     private static RequestsPresenter ourInstance;
 
-    private ChildEventListener mDataListener;
-    private ValueEventListener mCountListener;
-
-    private List<Friend> mRequests;
-
-    private RequestsListener[] mObservers;
-
-    private boolean mIsLoaded;
-
     private RequestsPresenter() {
-        mRequests = new ArrayList<>(Constants.INITIAL_COLLECTION_CAPACITY_REQUESTS);
-        mObservers = new RequestsListener[Constants.MAX_REQUESTS_LISTENERS_COUNT];
+        super(
+                Constants.INITIAL_COLLECTION_CAPACITY_REQUESTS,
+                Constants.MAX_REQUESTS_LISTENERS_COUNT,
+                null
+        );
     }
 
     public static RequestsPresenter getInstance() {
-        if (ourInstance == null) ourInstance = new RequestsPresenter();
-        return ourInstance;
-    }
-
-    @Override
-    public RequestsPresenter attach(Object component) {
-        RequestsListener listener = (RequestsListener) component;
-
-        /* If the observer is already attached, return. */
-        for (int i = 0; i < mObservers.length; i++) {
-            RequestsListener observer = mObservers[i];
-            if (observer != null && observer.equals(listener)) return ourInstance;
-        }
-
-        /* Insert the observer at the first available slot. */
-        for (int i = 0; i < mObservers.length; i++)
-            if (mObservers[i] == null) {
-                mObservers[i] = listener;
-                return ourInstance;
-            }
-
-        return ourInstance;
-    }
-
-    @Override
-    public RequestsPresenter detach(Object component) {
-        RequestsListener listener = (RequestsListener) component;
-
-        /* If there are no observers, free the memory for garbage collection. */
-        if (mObservers.length == 0) {
-            stopSync();
-            ourInstance = null;
-            return null;
-        }
-
-        for (int i = 0; i < mObservers.length; i++)
-            if (mObservers[i] != null && mObservers[i].equals(listener)) {
-                mObservers[i] = null;
-                return ourInstance;
-            }
-
-        return ourInstance;
-    }
-
-    @Override
-    public RequestsPresenter sync() {
-        final String userId = AuthPresenter.getCurrentUserId();
-        if (userId == null) return ourInstance;
-
-        if (mCountListener == null) {
-            notifyObservers(Constants.CALLBACK_START_LOADING);
-
-            if (mRequests.size() == 0) notifyObservers(Constants.CALLBACK_INITIAL_LOADING);
-
-            mCountListener = RequestsDatabaseHelper.getRequestsCountReference(userId)
-                    .addValueEventListener(new ValueEventListener() {
-                @Override
-                public void onDataChange(DataSnapshot dataSnapshot) {
-                    final int count = Integer.valueOf(dataSnapshot.getValue().toString());
-
-                    if (count == 0) notifyObservers(Constants.CALLBACK_COMPLETE_LOADING);
-
-                    else if (count > 0) {
-                        if (mDataListener == null) {
-
-                            mDataListener = RequestsDatabaseHelper.getRequestsDataReference(userId)
-                                    .addChildEventListener(new ChildEventListener() {
-                                @Override
-                                public void onChildAdded(DataSnapshot dataSnapshot, String s) {
-                                    Friend friend = new Friend(dataSnapshot.getValue().toString());
-                                    if (!mRequests.contains(friend)) {
-                                        mRequests.add(friend);
-                                        notifyObservers(Constants.CALLBACK_ADD_DATA, mRequests.size() - 1, friend);
-                                    }
-
-                                    if (mRequests.size() == count) {
-                                        notifyObservers(Constants.CALLBACK_COMPLETE_LOADING);
-                                    }
-                                }
-
-                                @Override
-                                public void onChildRemoved(DataSnapshot dataSnapshot) {
-                                    Friend friend = new Friend(dataSnapshot.getValue().toString());
-                                    int index = mRequests.indexOf(friend);
-                                    if (index != -1) {
-                                        mRequests.remove(index);
-                                        notifyObservers(Constants.CALLBACK_REMOVE_DATA, index, friend);
-                                    }
-
-                                    if (mRequests.size() == count || mRequests.size() == 0) {
-                                        notifyObservers(Constants.CALLBACK_COMPLETE_LOADING, index, friend);
-                                    }
-                                }
-
-                                @Override
-                                public void onChildChanged(DataSnapshot dataSnapshot, String s) {
-
-                                }
-
-                                @Override
-                                public void onChildMoved(DataSnapshot dataSnapshot, String s) {
-
-                                }
-
-                                @Override
-                                public void onCancelled(DatabaseError databaseError) {
-
-                                }
-                            });
-                        }
-                    }
-                }
-
-                @Override
-                public void onCancelled(DatabaseError databaseError) {
-
-                }
-            });
+        if (ourInstance == null) {
+            ourInstance = new RequestsPresenter();
         }
         return ourInstance;
-    }
-
-    @Override
-    public RequestsPresenter stopSync() {
-        String userId = AuthPresenter.getCurrentUserId();
-        if (userId == null) return ourInstance;
-
-        if (mDataListener != null) {
-            RequestsDatabaseHelper.getRequestsDataReference(userId)
-                    .removeEventListener(mDataListener);
-            mDataListener = null;
-        }
-        if (mCountListener != null) {
-            RequestsDatabaseHelper.getRequestsCountReference(userId)
-                    .removeEventListener(mCountListener);
-            mCountListener = null;
-        }
-        return ourInstance;
-    }
-
-    @Override
-    public Friend get(int index) {
-        return mRequests.get(index);
-    }
-
-    @Override
-    public List<Friend> getAll() {
-        return mRequests;
-    }
-
-    @Override
-    public int size() {
-        return mRequests.size();
-    }
-
-    @Override
-    public boolean isLoaded() {
-        return mIsLoaded;
-    }
-
-    private void notifyObservers(String event, int index, Friend friend) {
-        if (event.equals(Constants.CALLBACK_COMPLETE_LOADING)) mIsLoaded = true;
-        for (int i = 0; i < mObservers.length; i++) {
-            RequestsListener listener = mObservers[i];
-            if (listener != null)
-                switch (event) {
-                    case Constants.CALLBACK_START_LOADING:
-                        listener.onStartRequestsLoading();
-                        break;
-                    case Constants.CALLBACK_INITIAL_LOADING:
-                        listener.onRequestsInitialization();
-                        break;
-                    case Constants.CALLBACK_ADD_DATA:
-                        listener.onRequestAdded(index, friend);
-                        break;
-                    case Constants.CALLBACK_REMOVE_DATA:
-                        listener.onRequestRemoved(index, friend);
-                    case Constants.CALLBACK_COMPLETE_LOADING:
-                        listener.onCompleteRequestsLoading();
-                        break;
-                }
-        }
-    }
-
-    private void notifyObservers(String event) {
-        notifyObservers(event, 0, null);
-    }
-
-    void pushSeenRequests(List<Friend> requests) {
-        RequestsDatabaseHelper.pushSeenRequests(requests);
     }
 
     void acceptRequest(Friend friend) {
-        RequestsDatabaseHelper.acceptRequest(friend);
+        RequestsDatabaseHelper.accept(friend.getFirebaseId());
+    }
+
+    void pushSeenRequests(List<Friend> requests) {
+        RequestsDatabaseHelper.updateSeen(requests);
+    }
+
+    @Override
+    protected DatabaseReference getDataReference(String userId) {
+        return RequestsDatabaseHelper.getDataReference(userId);
+    }
+
+    @Override
+    protected DatabaseReference getCountReference(String userId) {
+        return RequestsDatabaseHelper.getCountReference(userId);
+    }
+
+    @Override
+    protected boolean isCachingEnabled() {
+        return Constants.CACHE_REQUESTS;
+    }
+
+    @Override
+    protected String getCacheKeyString() {
+        return Constants.KEY_SHARED_PREF_DATA_REQUESTS;
+    }
+
+    @Override
+    protected int getInitialListCapacity() {
+        return Constants.INITIAL_COLLECTION_CAPACITY_REQUESTS;
+    }
+
+    @Override
+    protected void notifyStartLoading(Object listener) {
+        RequestsListener observer = (RequestsListener) listener;
+        observer.onStartRequestsLoading();
+    }
+
+    @Override
+    protected void notifyInitialLoading(Object listener) {
+        RequestsListener observer = (RequestsListener) listener;
+        observer.onRequestsInitialization();
+    }
+
+    @Override
+    protected void notifyAddData(Object listener, int index, Friend friend) {
+        RequestsListener observer = (RequestsListener) listener;
+        observer.onRequestAdded(index, friend);
+    }
+
+    @Override
+    protected void notifyChangeData(Object listener, int index, Friend friend) {
+        RequestsListener observer = (RequestsListener) listener;
+        observer.onRequestChanged(index, friend);
+    }
+
+    @Override
+    protected void notifyRemoveData(Object listener, int index, Friend friend) {
+        RequestsListener observer = (RequestsListener) listener;
+        observer.onRequestRemoved(index, friend);
+    }
+
+    @Override
+    protected void notifyCompleteLoading(Object listener) {
+        RequestsListener observer = (RequestsListener) listener;
+        observer.onCompleteRequestsLoading();
+    }
+
+    @Override
+    protected void destroy() {
+        ourInstance = null;
     }
 
     public interface RequestsListener {
@@ -233,6 +106,8 @@ public class RequestsPresenter implements FriendsPresenter {
         void onRequestsInitialization();
 
         void onRequestAdded(int index, Friend friend);
+
+        void onRequestChanged(int index, Friend friend);
 
         void onRequestRemoved(int index, Friend friend);
 

@@ -1,22 +1,19 @@
 package com.manoeuvres.android.timeline;
 
-
-public interface TimelinePresenter {
-    TimelinePresenter attach(Object component, String userId);
+interface TimelinePresenter {
+    void attach(Object component, String userId);
 
     TimelinePresenter detach(Object component, String userId);
 
-    TimelinePresenter addFriend(String userId);
+    void addFriend(String userId);
 
-    TimelinePresenter removeFriend(String userId);
+    void removeFriend(String userId);
 
-    TimelinePresenter sync(String userId);
+    void sync(String userId);
 
-    TimelinePresenter stopSync(String userId);
+    void stopSync(String userId);
 
-    TimelinePresenter sync();
-
-    TimelinePresenter stopSync();
+    void sync();
 
     Object get(String userId, String key);
 

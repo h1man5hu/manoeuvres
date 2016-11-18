@@ -1,16 +1,15 @@
 package com.manoeuvres.android.friends;
 
-
 import java.util.List;
 
-public interface FriendsPresenter {
-    FriendsPresenter attach(Object component);
+interface FriendsPresenter {
+    void attach(Object component);
 
     FriendsPresenter detach(Object component);
 
-    FriendsPresenter sync();
+    void sync();
 
-    FriendsPresenter stopSync();
+    void stopSync();
 
     Friend get(int index);
 
